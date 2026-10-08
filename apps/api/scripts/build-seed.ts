@@ -1,20 +1,40 @@
 /**
- * Parses Section 6 of the build plan into data/family.seed.json
- * (persons, unions, parentage) and a web snapshot.
- * Usage: tsx scripts/build-seed.ts [path-to-plan.md]
+ * Builds data/family.seed.json (persons, unions, parentage) from the family's draw.io export.
+ *
+ * Usage: tsx scripts/build-seed.ts [path-to-drawio.html]
+ * Default input: data/source/family-tree.drawio.html (gitignored, like all family data).
+ *
+ * How the diagram is read (the "Full family tree" page):
+ *  - Each rounded box is one person. Lines run from parent box to child box.
+ *  - First line: the person, with an optional title and "(late)".
+ *  - "m. Name" lines: spouses. "m. A; earlier m. B (late)" means B was the first spouse;
+ *    children belong to the most recent spouse.
+ *  - Notes: "Born 23 April 2024", "Twin", "Also known as X", anything else becomes a review note.
+ *  - Children are ordered top to bottom, which is the confirmed birth order.
+ * Each person's address (path) is their position: 3.8.2 = branch 3, 8th child, 2nd child.
+ * Database ids derive from the path, so they stay stable when new people are added at the end.
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Parentage, Person, Tree, Union } from "@family-tree/shared";
+import { inflateRawSync } from "node:zlib";
+import type { Parentage, Person, Union } from "@family-tree/shared";
+
+export type SeedPerson = Person & { birthDate: string | null };
+export interface Seed {
+  persons: SeedPerson[];
+  unions: Union[];
+  parentage: Parentage[];
+}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../..");
-const planPath = process.argv[2] ?? resolve(root, "bintukwanga-family-tree-plan.md");
+const input = process.argv[2] ?? resolve(root, "data/source/family-tree.drawio.html");
 
 const TITLES = ["Dr.", "Eng.", "Prof.", "Counsel", "Rev.", "Sr."];
 
+// Alternate spellings so search still finds people (keyed by path).
 const ALIASES: Record<string, string[]> = {
   "2": ["Adyeri"],
   "2.3": ["Teddy", "Dr. Teddy Namuli Kagoro"],
@@ -26,68 +46,118 @@ const ALIASES: Record<string, string[]> = {
   "1.1.1": ["Immaculate Nuwagabe"],
   "2.1.2": ["Ivan Kagoro"],
   "2.1.3": ["Nigel Kagoro"],
+  "2.1.3.1": ["Briel Akiki Kagoro", "Briel"],
   "7.2": ["Kagurusi"],
   "7.1": ["Kamundtu"],
   "7.2.3": ["Kabaku"],
   "6": ["Kemitoooma"],
   "8": ["Bakatonda"],
+  "3.1": ["Beatrice Nabukalu", "Bea"],
+  "3.1.1.1": ["George William Kalenzi Smith", "George William", "G.W.", "G.W. Kalenzi Smith", "Kalenzi Smith"],
+  "3.2.1.1": ["Theresa Sanyu"],
+  "3.6.1": ["Jeffrey Kigambo Magara"],
   "3.7.1.2": ["Cittorio", "Metcaffe"],
+  "4.1.1": ["Deogratius Byaruhanga"],
   "9.5": ["Swithing"],
   "2.4.1.2": ["Nadrube"],
-  "3.7": ["Vicky"],
   "6.2.2": ["Tumwine"],
-  "3.1.1.1": ["G.W.", "George William", "G.W. Kalenzi Smith"],
 };
 const SPOUSE_ALIASES: Record<string, string[]> = { "2.4.1": ["Maria Obua"] };
-const NAME_OVERRIDE: Record<string, string> = { "3.1.1.1": "George William Kalenzi Smith" };
 
-const OPEN_ITEMS: Record<string, string> = {
-  "1": "Agnes Tumuhwire vs Agnes Tumwine is undecided. Kept Tumuhwire; Tumwine stored as alias.",
-  "2": "Wife's name to be confirmed.",
-  "3": "Spouse recorded with a single or partial name; full name to be confirmed.",
-  "4": "Gender inferred from first name; please confirm.",
+const NOTE = {
+  agnes: "Agnes Tumuhwire vs Agnes Tumwine is undecided. Kept Tumuhwire; Tumwine stored as alias.",
+  spouse: "Spouse recorded with a single or partial name; full name to be confirmed.",
+  gender: "Gender inferred from first name; please confirm.",
 };
+const FLAGGED: Record<string, string> = { "6.2.2": NOTE.agnes };
+// Genders the family stated explicitly (everyone else is inferred and queued for review).
+const STATED_GENDER: Record<string, "M" | "F"> = { "3.7": "F" };
 
 const FEMALE = new Set(
-  `Martha Beatrice Margarette Maria Maureen Mauda Immaculate Sharon Josephine Elizabeth Ivy Caroline Catherine Elsa Clare Christabell Gillian Grace Magdalena Merina Loma Charlotte Imelda Gloria Francesca Nicolette Mary Pauline Theresa Evelyn Alisha Arrielle Sanyu Abigail Christine Madrine Irene Sheila Doreen Lynette Lorita Hildagarde Patricia Joy Peace Zion Alexia Isabella Salome Veronica Semara Yemi Verity Florence Audriana Vincent Lucy Liza Lyn Laureen Rose Lenah Michelle Makyla Sylvia Gianna Aviella Amaris Every Suzan Rosa Joana Hannah Eugenia Anita Agnes Anna Jackline Anne Brenda Mercy Sonia Loida Felista Cecilia Edith Harriet Cynthis Teodozia Komuhangi Sylivia Ruth Debra Rhola Angelina Albertina Regina Wendy Michell Roshmin Nikita Patience Jacquerine Hanna Nora Hellen Kezerle Petrina Paroma Macrina Channel Thea Kiara Stella Phiona Theopista Speciosa Baby Kyomugisha Jolly Elisha Caaroline Kobusingye Kiconco Ikondere Nethan Maxine Kemitooma`.split(
-    /\s+/,
-  ),
+  `Martha Beatrice Bea Margarette Maria Maureen Mauda Immaculate Sharon Josephine Elizabeth Ivy Caroline Catherine Elsa Clare Christabell Gillian Grace Magdalena Merina Loma Charlotte Imelda Gloria Francesca Nicolette Mary Pauline Theresa Evelyn Alisha Arrielle Sanyu Abigail Christine Madrine Irene Sheila Doreen Lynette Lorita Hildagarde Patricia Joy Peace Zion Alexia Isabella Salome Veronica Semara Yemi Verity Florence Audriana Vincent Lucy Liza Lyn Laureen Rose Lenah Michelle Makyla Sylvia Gianna Aviella Amaris Every Suzan Rosa Joana Hannah Eugenia Anita Agnes Anna Jackline Anne Brenda Mercy Sonia Loida Felista Cecilia Edith Harriet Cynthis Teodozia Komuhangi Sylivia Ruth Debra Rhola Angelina Albertina Regina Wendy Michell Roshmin Nikita Patience Jacquerine Hanna Nora Hellen Kezerle Petrina Paroma Macrina Channel Thea Kiara Stella Phiona Theopista Speciosa Baby Kyomugisha Jolly Elisha Caaroline Kobusingye Kiconco Ikondere Nethan Maxine Kemitooma Linda Berna Aya Brielle Dorcas Karen`.split(/\s+/),
 );
 const MALE = new Set(
-  `John Ivan Israel Isaih Paul Godfrey Godwin Wilson Frank Edward Agaba Nigel Briel Robert Michael Joseph Francis Maxmillan Stefan Joshua Martin Gilbert Collins Jeremiah Archangel Mario Melvin Patrick Solomon Norbert Liam Julian Ryan Moses Emmanuel Shawn George Sam Xavier Gabriel Deus Hilary Conrad Mathew Mark Anthony Felix William Aedan Ben Jonathan Benjamin Kevin Micah Andrew Rogers Trevor Tarvis Josiah Henry Larry Josheb Silasi Cedrick Deogratius Petero Ronald Innocent Christian Banyenzaki Antiel Yakobo Steven Denis Justus Priton David Bosco Deo Gerald Roderick Allan Brian Brandon Raymond Albert Trevaar Jason Herbert Nolan Jordan Omukama Swithin Timothy Aaron Alexander Eugene Aeden Karl Bonny Jeffrey Roy Warren Jonah Vittorio Vincenzo Kigambo`.split(
-    /\s+/,
-  ),
+  `John Ivan Israel Isaih Paul Godfrey Godwin Wilson Frank Edward Agaba Nigel Briel Robert Michael Joseph Francis Maxmillan Stefan Joshua Martin Gilbert Collins Jeremiah Archangel Mario Melvin Patrick Solomon Norbert Liam Julian Ryan Moses Emmanuel Shawn George Sam Xavier Gabriel Deus Hilary Conrad Mathew Mark Anthony Felix William Aedan Ben Jonathan Benjamin Kevin Micah Andrew Rogers Trevor Tarvis Josiah Henry Larry Josheb Silasi Cedrick Deogratius Deogratus Petero Ronald Innocent Christian Banyenzaki Antiel Yakobo Steven Denis Justus Priton David Bosco Deo Gerald Roderick Allan Brian Brandon Raymond Albert Trevaar Jason Herbert Nolan Jordan Omukama Swithin Timothy Aaron Alexander Eugene Aeden Karl Bonny Jeffrey Jeffery Roy Warren Jonah Vittorio Vincenzo Kigambo Thomas`.split(/\s+/),
 );
+
+const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 
 const uuid = (seed: string) => {
   const h = createHash("sha1").update(`family-tree:${seed}`).digest("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
 
-function guessGender(name: string): "M" | "F" | "U" {
-  const first = name.split(/\s+/)[0] ?? "";
-  if (FEMALE.has(first)) return "F";
-  if (MALE.has(first)) return "M";
-  return "U";
+// ---------- draw.io extraction ----------
+
+interface Cell {
+  id: string;
+  vertex: boolean;
+  edge: boolean;
+  source?: string;
+  target?: string;
+  value: string;
+  style: string;
+  x: number;
+  y: number;
 }
+
+const unescapeXml = (s: string) =>
+  s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'").replace(/&#xa;/gi, "\n").replace(/&amp;/g, "&");
+
+function htmlToText(s: string) {
+  return unescapeXml(unescapeXml(s))
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(div|p)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n\s*\n+/g, "\n")
+    .trim();
+}
+
+function readDiagram(file: string): Cell[] {
+  const html = readFileSync(file, "utf8");
+  const attr = html.match(/data-mxgraph="([^"]*)"/)?.[1];
+  if (!attr) throw new Error("No draw.io diagram found in " + file);
+  const xml: string = JSON.parse(unescapeXml(attr)).xml;
+  const pages = [...xml.matchAll(/<diagram([^>]*)>([\s\S]*?)<\/diagram>/g)].map((d) => {
+    let body = d[2]!.trim();
+    if (!body.startsWith("<")) body = decodeURIComponent(inflateRawSync(Buffer.from(body, "base64")).toString("utf8"));
+    return { name: d[1]!.match(/name="([^"]*)"/)?.[1] ?? "", body };
+  });
+  const page = pages.find((p) => /full/i.test(p.name)) ?? pages[0];
+  if (!page) throw new Error("Diagram has no pages");
+  return [...page.body.matchAll(/<mxCell\b([^>]*?)(\/>|>([\s\S]*?)<\/mxCell>)/g)].map((m) => {
+    const a: Record<string, string> = {};
+    for (const x of m[1]!.matchAll(/(\w+)="([^"]*)"/g)) a[x[1]!] = x[2]!;
+    const g: Record<string, number> = {};
+    const geo = (m[3] ?? "").match(/<mxGeometry\b([^>]*)/);
+    if (geo) for (const x of geo[1]!.matchAll(/(\w+)="([^"]*)"/g)) g[x[1]!] = Number(x[2]);
+    return {
+      id: a.id ?? "",
+      vertex: a.vertex === "1",
+      edge: a.edge === "1",
+      source: a.source,
+      target: a.target,
+      value: htmlToText(a.value ?? ""),
+      style: a.style ?? "",
+      x: g.x ?? 0,
+      y: g.y ?? 0,
+    };
+  });
+}
+
+// ---------- label parsing ----------
 
 interface Parsed {
   name: string;
   title: string | null;
   late: boolean;
-  twinOf: string | null;
-  female: boolean;
-  items: string[];
 }
-
 function parseName(raw: string): Parsed {
-  let s = raw;
+  let s = raw.trim();
   const late = /\(late\)/i.test(s);
-  const twin = /\(twin of ([\d.]+)\)/.exec(s);
-  const female = /\(female/.test(s);
-  const items = [...s.matchAll(/\[\?(\d)\]/g)].map((m) => m[1]!);
-  s = s.replace(/\(late\)/gi, "").replace(/\[\?\d\]/g, "").replace(/\([^)]*\)/g, "");
-  s = s.replace(/\s+/g, " ").trim();
+  s = s.replace(/\(late\)/gi, "").replace(/\s+/g, " ").trim();
   let title: string | null = null;
   for (const t of TITLES) {
     if (s.startsWith(t + " ")) {
@@ -96,188 +166,187 @@ function parseName(raw: string): Parsed {
       break;
     }
   }
-  return { name: s, title, late, twinOf: twin?.[1] ?? null, female, items };
+  return { name: s, title, late };
 }
 
-const persons: Person[] = [];
+interface Label {
+  subject: Parsed;
+  spouses: string[]; // in marriage order (earliest first)
+  birthDate: string | null;
+  twin: boolean;
+  aliases: string[];
+  notes: string[];
+}
+function parseLabel(text: string): Label {
+  const [first = "", ...rest] = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  const out: Label = { subject: parseName(first), spouses: [], birthDate: null, twin: false, aliases: [], notes: [] };
+  for (const line of rest) {
+    let m: RegExpMatchArray | null;
+    if (/^m\.\s/.test(line)) {
+      // "m. Current; earlier m. First" -> [First, Current]
+      const parts = line.replace(/^m\.\s*/, "").split(/;\s*earlier\s+m\.\s*/i).map((s) => s.trim()).filter(Boolean);
+      out.spouses.push(...parts.reverse());
+    } else if ((m = line.match(/^born\s+(\d{1,2})\s+([a-z]+)\s+(\d{4})$/i))) {
+      const month = MONTHS.indexOf(m[2]!.toLowerCase());
+      if (month < 0) out.notes.push(line);
+      else out.birthDate = `${m[3]}-${String(month + 1).padStart(2, "0")}-${m[1]!.padStart(2, "0")}`;
+    } else if (/^twin$/i.test(line)) {
+      out.twin = true;
+    } else if ((m = line.match(/^also known as\s+(.+)$/i))) {
+      out.aliases.push(m[1]!.trim());
+    } else {
+      out.notes.push(line);
+    }
+  }
+  return out;
+}
+
+// ---------- build ----------
+
+const persons: SeedPerson[] = [];
 const unions: Union[] = [];
 const parentage: Parentage[] = [];
-const byPath = new Map<string, Person>();
-const unionOfPath = new Map<string, Union>(); // union whose children descend (latest)
+const byPath = new Map<string, SeedPerson>();
+const familyUnion = new Map<string, Union>(); // the union a person's children belong to
 
-function addPerson(
-  p: Parsed,
-  path: string | null,
-  opts: { blood: boolean; order: number | null; idSeed: string; statedGender?: "M" | "F" },
-): Person {
-  const stated = !!opts.statedGender || p.female;
-  const g = opts.statedGender ?? (p.female ? "F" : guessGender(p.name));
-  const notes: string[] = p.items.map((i) => OPEN_ITEMS[i] ?? "");
-  const person: Person = {
+function guessGender(name: string): "M" | "F" | "U" {
+  const first = name.split(/\s+/)[0] ?? "";
+  return FEMALE.has(first) ? "F" : MALE.has(first) ? "M" : "U";
+}
+
+function addNote(p: SeedPerson, note: string) {
+  p.needsReview = true;
+  p.reviewNote = [p.reviewNote, note].filter(Boolean).join(" ");
+}
+
+function addPerson(p: Parsed, path: string | null, opts: { blood: boolean; order: number | null; idSeed: string; gender?: "M" | "F" }) {
+  const gender = opts.gender ?? guessGender(p.name);
+  const person: SeedPerson = {
     id: uuid(opts.idSeed),
     path,
-    fullName: (path && NAME_OVERRIDE[path]) || p.name,
+    fullName: p.name,
     title: p.title,
     aliases: [],
     isDeceased: p.late,
     isBloodMember: opts.blood,
-    gender: g,
-    genderSource: stated ? "stated" : "inferred",
+    gender,
+    genderSource: opts.gender ? "stated" : "inferred",
     twinGroup: null,
     birthOrder: opts.order,
     needsReview: false,
     reviewNote: null,
+    birthDate: null,
   };
-  if (!stated && g !== "U") notes.push(OPEN_ITEMS["4"]!);
-  if (g === "U") notes.push(OPEN_ITEMS["4"]!);
-  const n = notes.filter(Boolean);
-  if (n.length) {
-    person.needsReview = true;
-    person.reviewNote = n.join(" ");
-  }
+  if (!opts.gender) addNote(person, NOTE.gender);
   persons.push(person);
   if (path) byPath.set(path, person);
   return person;
 }
 
-function addUnion(a: Person, b: Person | null, seq: number, status: Union["status"]): Union {
+function addUnion(a: SeedPerson, b: SeedPerson | null, seq: number) {
   const u: Union = {
     id: uuid(`union:${a.id}:${seq}`),
     partnerA: a.id,
     partnerB: b?.id ?? null,
     sequence: seq,
-    status,
+    status: !b ? "unknown" : a.isDeceased || b.isDeceased ? "widowed" : "married",
   };
   unions.push(u);
   return u;
 }
 
-function addSpouse(of: Person, raw: string, seq: number, key: string): void {
-  if (/name to be confirmed/i.test(raw)) {
-    of.needsReview = true;
-    of.reviewNote = [of.reviewNote, OPEN_ITEMS["2"]].filter(Boolean).join(" ");
-    unionOfPath.set(key, addUnion(of, null, seq, "unknown"));
-    return;
-  }
-  const p = parseName(raw);
-  const sp = addPerson(p, null, { blood: false, order: null, idSeed: `spouse:${key}:${seq}` });
-  if (sp.gender === "U") {
-    sp.gender = of.gender === "M" ? "F" : of.gender === "F" ? "M" : "U";
-  }
-  if (!/\s/.test(p.name)) {
-    sp.needsReview = true;
-    sp.reviewNote = [sp.reviewNote, OPEN_ITEMS["3"]].filter(Boolean).join(" ");
-  }
-  const u = addUnion(of, sp, seq, sp.isDeceased || of.isDeceased ? "widowed" : "married");
-  unionOfPath.set(key, u);
+function addSpouses(of: SeedPerson, spouses: string[], key: string) {
+  spouses.forEach((raw, i) => {
+    const seq = i + 1;
+    if (/name to be confirmed/i.test(raw)) {
+      familyUnion.set(key, addUnion(of, null, seq));
+      addNote(of, "Spouse's name to be confirmed.");
+      return;
+    }
+    const sp = addPerson(parseName(raw), null, { blood: false, order: null, idSeed: `spouse:${key}:${seq}` });
+    if (sp.gender === "U") sp.gender = of.gender === "M" ? "F" : of.gender === "F" ? "M" : "U";
+    if (!/\s/.test(sp.fullName)) addNote(sp, NOTE.spouse);
+    familyUnion.set(key, addUnion(of, sp, seq));
+  });
 }
+
+const cells = readDiagram(input);
+const boxes = new Map(cells.filter((c) => c.vertex && /rounded=1/.test(c.style) && /arcSize=12/.test(c.style)).map((c) => [c.id, c]));
+const kids = new Map<string, Cell[]>();
+const hasParent = new Set<string>();
+for (const e of cells.filter((c) => c.edge && c.source && c.target && boxes.has(c.source) && boxes.has(c.target))) {
+  const list = kids.get(e.source!) ?? [];
+  list.push(boxes.get(e.target!)!);
+  kids.set(e.source!, list);
+  hasParent.add(e.target!);
+}
+const roots = [...boxes.values()].filter((b) => !hasParent.has(b.id));
+if (roots.length !== 1) throw new Error(`Expected one root box, found ${roots.length}`);
 
 // Root couple
-const antiel = addPerson(parseName("Antiel Bintukwanga (late)"), "0", {
-  blood: true,
-  order: null,
-  idSeed: "root:a",
-  statedGender: "M",
-});
-const maria = addPerson(parseName("Maria Christine Nakayima (late)"), null, {
-  blood: false,
-  order: null,
-  idSeed: "root:m",
-  statedGender: "F",
-});
-const rootUnion = addUnion(antiel, maria, 1, "widowed");
+const rootLabel = parseLabel(roots[0]!.value);
+const rootPerson = addPerson(rootLabel.subject, "0", { blood: true, order: null, idSeed: "root:a", gender: "M" });
+const rootSpouse = addPerson(parseName(rootLabel.spouses[0] ?? ""), null, { blood: false, order: null, idSeed: "root:m", gender: "F" });
+familyUnion.set("0", addUnion(rootPerson, rootSpouse, 1));
 
-const lines = readFileSync(planPath, "utf8").split(/\r?\n/);
-const start = lines.findIndex((l) => l.startsWith("### Branch 1"));
-const end = lines.findIndex((l) => l.startsWith("### Seeding task"));
-const orderCounter: Record<string, number> = {};
-
-for (const line of lines.slice(start, end)) {
-  const head = /^### Branch (\d+) — (.+)$/.exec(line);
-  if (head) {
-    const no = head[1]!;
-    const text = head[2]!;
-    let subjectRaw = text.split(" — ")[0]!;
-    let spouseRaw: string | null = null;
-    if (subjectRaw.includes(" m. ")) {
-      const [a, b] = subjectRaw.split(" m. ") as [string, string];
-      subjectRaw = a;
-      spouseRaw = b;
+const birthDates = new Map<string, string>();
+function walk(box: Cell, parentPath: string) {
+  const children = (kids.get(box.id) ?? []).sort((a, b) => a.y - b.y || a.x - b.x);
+  let twinRun: SeedPerson[] = [];
+  const closeTwins = () => {
+    if (twinRun.length > 1) {
+      const g = twinRun.map((t) => t.path).join("+");
+      twinRun.forEach((t) => (t.twinGroup = g));
     }
-    const person = addPerson(parseName(subjectRaw), no, {
-      blood: true,
-      order: Number(no),
-      idSeed: `path:${no}`,
-    });
-    parentage.push({ childId: person.id, unionId: rootUnion.id, parentId: null });
-    if (spouseRaw) addSpouse(person, spouseRaw, 1, no);
-    continue;
-  }
-  const m = /^(\s*)- (\d+(?:\.\d+)+) (.+)$/.exec(line);
-  if (!m) continue;
-  const path = m[2]!;
-  const rest = m[3]!;
-  const parentPath = path.split(".").slice(0, -1).join(".");
-  const parent = byPath.get(parentPath)!;
-  orderCounter[parentPath] = (orderCounter[parentPath] ?? 0) + 1;
-
-  let spouseParts: string[] = [];
-  let subject = rest;
-  if (path === "7.2") {
-    subject = "Allan Kagurutsi Kakuba";
-    spouseParts = ["Ruth (late)", "Sylivia Namatovu"];
-  } else {
-    const idx = rest.indexOf(" m. ");
-    if (idx >= 0) {
-      subject = rest.slice(0, idx).replace(/\s*[—-]\s*$/, "");
-      spouseParts = [rest.slice(idx + 4)];
-    } else subject = rest.replace(/\s*[—-]\s*$/, "");
-  }
-  const parsed = parseName(subject);
-  const person = addPerson(parsed, path, {
-    blood: true,
-    order: orderCounter[parentPath]!,
-    idSeed: `path:${path}`,
+    twinRun = [];
+  };
+  children.forEach((child, i) => {
+    const path = parentPath === "0" ? String(i + 1) : `${parentPath}.${i + 1}`;
+    const label = parseLabel(child.value);
+    const person = addPerson(label.subject, path, { blood: true, order: i + 1, idSeed: `path:${path}`, gender: STATED_GENDER[path] });
+    person.aliases.push(...label.aliases);
+    for (const n of label.notes) addNote(person, n);
+    if (label.birthDate) {
+      person.birthDate = label.birthDate;
+      birthDates.set(path, label.birthDate);
+    }
+    if (label.twin) twinRun.push(person);
+    else closeTwins();
+    addSpouses(person, label.spouses, path);
+    const fu = familyUnion.get(parentPath);
+    parentage.push(fu ? { childId: person.id, unionId: fu.id, parentId: null } : { childId: person.id, unionId: null, parentId: byPath.get(parentPath)!.id });
+    walk(child, path);
   });
-  if (parsed.twinOf) {
-    const g = [path, parsed.twinOf].sort().join("+");
-    person.twinGroup = g;
-    const other = byPath.get(parsed.twinOf);
-    if (other) other.twinGroup = g;
-  }
-  spouseParts.forEach((s, i) => addSpouse(person, s, i + 1, path));
-
-  const pu = unionOfPath.get(parentPath);
-  if (pu) parentage.push({ childId: person.id, unionId: pu.id, parentId: null });
-  else parentage.push({ childId: person.id, unionId: null, parentId: parent.id });
+  closeTwins();
 }
+walk(roots[0]!, "0");
 
 for (const [p, a] of Object.entries(ALIASES)) byPath.get(p)?.aliases.push(...a);
 for (const [p, a] of Object.entries(SPOUSE_ALIASES)) {
-  const u = unionOfPath.get(p);
+  const u = familyUnion.get(p);
   persons.find((x) => x.id === u?.partnerB)?.aliases.push(...a);
 }
 for (const x of persons) {
-  if (x.fullName.includes("Mwongyera")) {
-    x.aliases.push(x.fullName.replace("Mwongyera", "Mwongera"), x.fullName.replace("Mwongyera", "Mwondgyera"));
-  }
+  if (x.fullName.includes("Mwongyera")) x.aliases.push(x.fullName.replace("Mwongyera", "Mwongera"), x.fullName.replace("Mwongyera", "Mwondgyera"));
+  x.aliases = [...new Set(x.aliases)].filter((a) => a !== x.fullName);
 }
-const agnes = byPath.get("6.2.2")!;
-agnes.needsReview = true;
-agnes.reviewNote = [agnes.reviewNote, OPEN_ITEMS["1"]].filter(Boolean).join(" ");
+for (const [p, note] of Object.entries(FLAGGED)) {
+  const person = byPath.get(p);
+  if (person) addNote(person, note);
+}
 
-const tree: Tree = { persons, unions, parentage };
+const seed: Seed = { persons, unions, parentage };
 mkdirSync(resolve(root, "data"), { recursive: true });
-writeFileSync(resolve(root, "data/family.seed.json"), JSON.stringify(tree, null, 2));
+writeFileSync(resolve(root, "data/family.seed.json"), JSON.stringify(seed, null, 2));
+// Development snapshot for the web app: never includes birth dates.
 mkdirSync(resolve(root, "apps/web/public"), { recursive: true });
-writeFileSync(resolve(root, "apps/web/public/tree.snapshot.json"), JSON.stringify(tree));
+writeFileSync(
+  resolve(root, "apps/web/public/tree.snapshot.json"),
+  JSON.stringify({ ...seed, persons: persons.map(({ birthDate: _b, ...p }) => p) }),
+);
 
 const counts: Record<string, number> = {};
-for (const p of persons) {
-  if (p.path) {
-    const k = `G${p.path === "0" ? 0 : p.path.split(".").length}`;
-    counts[k] = (counts[k] ?? 0) + 1;
-  }
-}
-console.log(`persons=${persons.length} unions=${unions.length} parentage=${parentage.length}`);
+for (const p of persons) if (p.path) counts[`G${p.path === "0" ? 0 : p.path.split(".").length}`] = (counts[`G${p.path === "0" ? 0 : p.path.split(".").length}`] ?? 0) + 1;
+console.log(`source: ${input}`);
+console.log(`persons=${persons.length} unions=${unions.length} parentage=${parentage.length} birthDates=${birthDates.size}`);
 console.log("blood by generation:", counts, "needs_review:", persons.filter((p) => p.needsReview).length);

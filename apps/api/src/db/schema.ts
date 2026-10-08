@@ -1,4 +1,4 @@
-import { boolean, integer, pgTable, text, timestamp, uuid, check } from "drizzle-orm/pg-core";
+import { boolean, check, date, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 export const persons = pgTable(
@@ -14,6 +14,8 @@ export const persons = pgTable(
     gender: text("gender").notNull().default("U"),
     genderSource: text("gender_source"),
     birthYear: integer("birth_year"),
+    // Stored for administrators only; never sent to the public tree endpoint.
+    birthDate: date("birth_date"),
     deathYear: integer("death_year"),
     twinGroup: text("twin_group"),
     birthOrder: integer("birth_order"),

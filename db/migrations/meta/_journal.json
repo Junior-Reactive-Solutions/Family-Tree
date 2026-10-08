@@ -8,6 +8,13 @@
       "when": 1791458865759,
       "tag": "0000_freezing_mercury",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791482218175,
+      "tag": "0001_tiresome_nekra",
+      "breakpoints": true
     }
   ]
 }
