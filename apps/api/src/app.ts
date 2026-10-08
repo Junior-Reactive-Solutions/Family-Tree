@@ -12,7 +12,7 @@ import { SuggestionInputSchema, TreeSchema, type Tree } from "@family-tree/share
 import cookieParser from "cookie-parser";
 import { accessRouter, requireAccess } from "./access.js";
 import { adminRouter } from "./admin.js";
-import { limiters } from "./limits.js";
+import { limiters, visitorKey } from "./limits.js";
 import { parentage, persons, suggestions, unions } from "./db/schema.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -90,7 +90,7 @@ app.post("/api/suggestions", requireAccess, ...suggestionLimiter, async (req, re
         message: d.message,
         submitterName: d.submitterName || null,
         submitterContact: d.submitterContact || null,
-        ipHash: createHash("sha256").update(ipSalt + (req.ip ?? "")).digest("hex"),
+        ipHash: createHash("sha256").update(ipSalt + visitorKey(req)).digest("hex"),
       });
     }
     return res.status(202).json({ ok: true });

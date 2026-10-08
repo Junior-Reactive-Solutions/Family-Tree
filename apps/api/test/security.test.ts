@@ -21,10 +21,12 @@ interface Opts {
   raw?: string;
   contentType?: string;
   method?: string;
+  headers?: Record<string, string>;
 }
 async function call(path: string, body?: unknown, o: Opts = {}) {
   const headers: Record<string, string> = { "X-Forwarded-For": o.ip ?? freshIp() };
   if (o.cookie) headers.Cookie = o.cookie;
+  Object.assign(headers, o.headers);
   if (body !== undefined || o.raw !== undefined) headers["Content-Type"] = o.contentType ?? "application/json";
   const res = await fetch(base + path, {
     method: o.method ?? (body !== undefined || o.raw !== undefined ? "POST" : "GET"),
@@ -90,6 +92,19 @@ describe("access code box", () => {
     const sc = r.headers.get("set-cookie") ?? "";
     expect(sc).toMatch(/HttpOnly/i);
     expect(sc).toMatch(/SameSite=Strict/i);
+  });
+  it("does not count correct codes towards the lockout", async () => {
+    const ip = freshIp();
+    for (let i = 0; i < 12; i++) expect((await call("/api/access", { code: CODE }, { ip })).status).toBe(200);
+  });
+  it("caps guessing from one connection even when visitor headers are forged", async () => {
+    const statuses: number[] = [];
+    for (let i = 0; i < 41; i++) {
+      const headers = { "x-vercel-forwarded-for": `198.51.100.${i}`, "cf-connecting-ip": "192.0.2.20" };
+      statuses.push((await call("/api/access", { code: `guess-${i}` }, { headers })).status);
+    }
+    expect(statuses.slice(0, 40).every((s) => s === 401)).toBe(true);
+    expect(statuses[40]).toBe(429);
   });
   it("locks out guessing after 8 attempts from one visitor", async () => {
     const ip = freshIp();
@@ -157,11 +172,15 @@ describe("suggestion box", () => {
     expect(statuses.slice(0, 5).every((s) => s === 202)).toBe(true);
     expect(statuses[5]).toBe(429);
   });
-  it("cannot dodge the limit by forging X-Forwarded-For from one connection", async () => {
-    // Locally every request shares one connection address; the per-edge cap (60) still applies.
+  it("cannot dodge the limit by forging visitor headers (production path)", async () => {
+    // Through Vercel a caller can forge x-vercel-forwarded-for, but Cloudflare's cf-connecting-ip is fixed.
     const statuses: number[] = [];
-    for (let i = 0; i < 70; i++) statuses.push((await suggest(valid, { ip: `203.0.113.${i}, 198.51.100.7` })).status);
-    expect(statuses).toContain(429);
+    for (let i = 0; i < 70; i++) {
+      const headers = { "x-vercel-forwarded-for": `203.0.113.${i}`, "cf-connecting-ip": "192.0.2.10" };
+      statuses.push((await suggest(valid, { headers })).status);
+    }
+    expect(statuses.filter((s) => s === 202).length).toBe(60);
+    expect(statuses.at(-1)).toBe(429);
   });
 });
 
