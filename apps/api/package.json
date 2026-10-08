@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "seed:build": "tsx scripts/build-seed.ts",
+    "admin:create": "tsx --env-file-if-exists=.env scripts/create-admin.ts",
     "seed:db": "tsx --env-file-if-exists=.env scripts/seed-db.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -15,13 +16,17 @@
   "dependencies": {
     "@family-tree/shared": "workspace:*",
     "@neondatabase/serverless": "^1.2.0",
+    "@node-rs/argon2": "^2.2.2",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "drizzle-orm": "^0.45.4",
     "express": "^4.21.1",
     "express-rate-limit": "^7.4.1",
-    "helmet": "^8.0.0"
+    "helmet": "^8.0.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^22.9.0",
