@@ -1,0 +1,64 @@
+<!doctype html>
+<!-- Source for public/og-image.png. Render: chrome --headless=new --window-size=1200,630 --screenshot=og.png og-image.html -->
+<html>
+<head>
+<meta charset="utf-8" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Inter:wght@400;500;600&display=block" rel="stylesheet" />
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    background: #1f3d2e;
+    background-image: radial-gradient(circle at 78% 42%, #2b5240 0%, #1f3d2e 58%);
+    color: #faf6ec; font-family: Inter, sans-serif; position: relative;
+  }
+  .frame { position: absolute; inset: 28px; border: 1.5px solid rgb(250 246 236 / .18); border-radius: 22px; }
+  .copy { position: absolute; left: 92px; top: 92px; width: 620px; }
+  .mark { display: flex; align-items: center; gap: 14px; font-size: 22px; letter-spacing: .14em; text-transform: uppercase; color: #c6d2c6; font-weight: 500; }
+  .mark img { width: 48px; height: 48px; border-radius: 12px; box-shadow: 0 0 0 1.5px rgb(250 246 236 / .25); }
+  h1 { font-family: "Cormorant Garamond", serif; font-weight: 700; font-size: 94px; line-height: .98; margin: 34px 0 0; letter-spacing: -.5px; }
+  .rule { width: 84px; height: 4px; background: #e0875a; border-radius: 2px; margin: 34px 0 28px; }
+  p { margin: 0; font-size: 28px; line-height: 1.4; color: #e4ebe1; max-width: 560px; }
+  .facts { display: flex; gap: 40px; font-size: 21px; color: #c6d2c6; margin-top: 30px; align-items: baseline; }
+  .facts b { font-variant-numeric: lining-nums; font-family: "Cormorant Garamond", serif; font-size: 40px; color: #faf6ec; margin-right: 10px; font-weight: 700; }
+  svg.tree { position: absolute; right: 70px; top: 86px; }
+</style>
+</head>
+<body>
+  <div class="frame"></div>
+  <div class="copy">
+    <div class="mark"><img src="../public/favicon.svg" alt="" />Family record</div>
+    <h1>Bintukwanga<br />Family Tree</h1>
+    <div class="rule"></div>
+    <p>The descendants of Antiel Bintukwanga and Maria Christine Nakayima.</p>
+    <div class="facts">
+      <span><b>5</b>generations</span>
+      <span><b>9</b>branches</span>
+      <span><b>1</b>family</span>
+    </div>
+  </div>
+
+  <!-- Abstract tree: no names, only structure -->
+  <svg class="tree" width="400" height="460" viewBox="0 0 400 460" fill="none">
+    <g stroke="#faf6ec" stroke-opacity=".55" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M200 70v50M200 120H70v56M200 120v56M200 120h130v56"/>
+      <path d="M70 200v40M70 240H30v40M70 240h40v40"/>
+      <path d="M200 200v40M200 240h-38v40M200 240h38v40"/>
+      <path d="M330 200v40M330 240h-40v40M330 240h40v40"/>
+      <path d="M110 304v32M238 304v32M370 304v32"/>
+      <path d="M110 336h-22v34M110 336h22v34M238 336h-22v34M238 336h22v34M370 336v34"/>
+    </g>
+    <circle cx="200" cy="50" r="26" fill="#e0875a"/>
+    <g fill="#faf6ec">
+      <circle cx="70" cy="190" r="17"/><circle cx="200" cy="190" r="17"/><circle cx="330" cy="190" r="17"/>
+    </g>
+    <g fill="#faf6ec" fill-opacity=".85">
+      <circle cx="30" cy="292" r="12"/><circle cx="110" cy="292" r="12"/><circle cx="162" cy="292" r="12"/>
+      <circle cx="238" cy="292" r="12"/><circle cx="290" cy="292" r="12"/><circle cx="370" cy="292" r="12"/>
+    </g>
+    <g fill="#faf6ec" fill-opacity=".6">
+      <circle cx="88" cy="378" r="8"/><circle cx="132" cy="378" r="8"/><circle cx="216" cy="378" r="8"/>
+      <circle cx="260" cy="378" r="8"/><circle cx="370" cy="378" r="8"/>
+    </g>
+  </svg>
+</body>
+</html>
