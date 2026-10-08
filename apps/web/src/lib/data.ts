@@ -11,7 +11,7 @@ export interface Family {
   chart: Datum[];
 }
 
-const API = import.meta.env.VITE_API_URL as string | undefined;
+const API = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 async function fetchJson(url: string, ms: number): Promise<unknown> {
   const ctrl = new AbortController();
@@ -27,9 +27,9 @@ async function fetchJson(url: string, ms: number): Promise<unknown> {
 
 /** API first (Render may be waking from idle), build-time snapshot as fallback. */
 export async function loadFamily(): Promise<Family> {
-  if (API) {
+  {
     try {
-      return buildFamily(TreeSchema.parse(await fetchJson(`${API}/api/tree`, 5000)));
+      return buildFamily(TreeSchema.parse(await fetchJson(`${API}/api/tree`, 55000)));
     } catch {
       /* fall through to snapshot */
     }

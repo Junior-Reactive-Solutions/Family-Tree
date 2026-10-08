@@ -15,7 +15,7 @@ const LABELS: Record<(typeof SUGGESTION_CATEGORIES)[number], string> = {
   add_photo: "Add a photo",
   other: "Other",
 };
-const API = import.meta.env.VITE_API_URL ?? "http://localhost:9902";
+const API = import.meta.env.VITE_API_URL ?? "";
 const QUESTION = /\?\s*$|^(who|what|when|where|why|how|is|are|does|do|can)\b/i;
 
 type Step = "category" | "person" | "message" | "contact" | "review" | "done" | "error";
