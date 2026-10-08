@@ -135,7 +135,12 @@ Environment variables on Render:
 | `CORS_ORIGINS` | Comma-separated allowed origins, e.g. the Vercel URL and `http://localhost:9901` |
 | `TRUST_PROXY` | `2` (Vercel, then Render) |
 
-The free plan sleeps after about 15 minutes without traffic. The first visit afterwards can take up to a minute; the site shows a short note while it wakes, and later visits are fast.
+The free plan sleeps after about 15 minutes without traffic, and the first visit afterwards can take up to a minute. To prevent this, the **Keep API awake** workflow (`.github/workflows/keep-alive.yml`) pings `/api/health` every 10 minutes. Things to know:
+
+- The ping does not touch the database, so Neon still sleeps when idle.
+- One always-on service uses about 744 of Render's 750 free instance-hours a month, so keep other free Render services in this workspace asleep or on a paid plan.
+- GitHub can delay scheduled runs at busy times, and it switches schedules off on public repos after 60 days without commits. If that happens, re-enable the workflow from the Actions tab.
+- If the site does sleep, it shows a short note while waking.
 
 ### Database (Neon)
 
