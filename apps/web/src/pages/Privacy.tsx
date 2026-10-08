@@ -17,6 +17,9 @@ export default function Privacy() {
         <li>Names, alternative spellings, titles and family relationships of family members and their spouses.</li>
         <li>Whether a person is living or late, and their place in the family (generation and branch).</li>
         <li>No addresses, phone numbers, birth dates, photos or identity numbers are published.</li>
+        <li>
+          Where the family has provided a birth date, it is kept for administrators only and is not shown on the site.
+        </li>
       </ul>
       <p>
         The information was gathered by the family. Some details, such as gender, were estimated from first names and

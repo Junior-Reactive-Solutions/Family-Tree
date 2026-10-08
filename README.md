@@ -60,13 +60,32 @@ VITE_API_URL=http://localhost:9902
 
 ### 2. Family data
 
-Put the source plan file in the repo root, then generate the seed:
+The family maintains the tree as a draw.io diagram. Export it from draw.io as HTML (File, Export as, HTML) and save it as `data/source/family-tree.drawio.html`, then generate the seed:
 
 ```bash
 pnpm seed:build
 ```
 
-This parses Section 6 of the plan into `data/family.seed.json` (285 people, 59 unions, 226 parent links) and a local snapshot for the web app.
+This reads the "Full family tree" page into `data/family.seed.json` (people, couples and parent links) and a local snapshot for the web app. The builder expects these conventions in the diagram:
+
+- **Boxes and lines:** one rounded box per person, with lines from parent to child. Children are read top to bottom, in birth order.
+- **First line:** the person, for example `Dr. Edward Rutayungwa` or `Wilson Barihaihi (late)`.
+- **`m. Name` lines:** spouses. Write `m. Current; earlier m. First (late)` for remarriages; children belong to the most recent spouse.
+- **Notes:** `Born 23 April 2024`, `Twin` and `Also known as Vicky` are understood. Any other line goes to the admin review queue.
+
+People are addressed by position (`3.8.2`), and database ids derive from that. Add new children after their existing siblings so other people keep their ids.
+
+### Updating the live tree
+
+Back up first: create a branch in the Neon console, or ask for one. Then:
+
+```bash
+pnpm seed:build                                   # rebuild from the new export
+pnpm --filter @family-tree/api seed:db --dry-run  # review who is added and removed
+pnpm --filter @family-tree/api seed:db            # apply: upserts, then removes people no longer in the diagram
+```
+
+The live site picks up changes within a minute. Suggestions about a removed person are kept, with their person link cleared.
 
 ### 3. Database
 
