@@ -2,15 +2,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { createChart } from "family-chart";
 import { select } from "d3";
-import { Heart, HeartOff, Maximize, Users, UsersRound, ZoomIn, ZoomOut } from "lucide-react";
+import { Heart, HeartOff, List, Maximize, Users, UsersRound, ZoomIn, ZoomOut } from "lucide-react";
 import "family-chart/styles/family-chart.css";
 import { useFamily } from "../lib/context";
+import { useMedia } from "../lib/useMedia";
+import FocusNavigator from "../components/FocusNavigator";
 import { displayName, initials } from "../lib/data";
 
 const esc = (s: string) =>
   s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-export default function TreePage() {
+function TreeCanvas({ onList }: { onList?: () => void }) {
   const { family, openPerson } = useFamily();
   const [params, setParams] = useSearchParams();
   const host = useRef<HTMLDivElement>(null);
@@ -83,6 +85,9 @@ export default function TreePage() {
   return (
     <section className="tree-wrap">
       <div className="tree-controls" role="toolbar" aria-label="Tree controls">
+        {onList && (
+          <button className="icon-btn" aria-label="Switch to list view" title="List view" onClick={onList}><List size={20} strokeWidth={1.75} /></button>
+        )}
         <button className="icon-btn" aria-label="Zoom in" onClick={() => zoom(1.3)}><ZoomIn size={20} strokeWidth={1.75} /></button>
         <button className="icon-btn" aria-label="Zoom out" onClick={() => zoom(1 / 1.3)}><ZoomOut size={20} strokeWidth={1.75} /></button>
         <button className="icon-btn" aria-label="Fit tree to screen" onClick={() => chartRef.current?.updateTree({ tree_position: "fit", transition_time: 250 })}><Maximize size={20} strokeWidth={1.75} /></button>
@@ -103,4 +108,11 @@ export default function TreePage() {
       <div className="f3" ref={host} aria-label="Interactive family tree. Use the Branches page for a text list." />
     </section>
   );
+}
+
+export default function TreePage() {
+  const narrow = useMedia("(max-width: 767px)");
+  const [diagram, setDiagram] = useState(false);
+  if (narrow && !diagram) return <FocusNavigator onDiagram={() => setDiagram(true)} />;
+  return <TreeCanvas onList={narrow ? () => setDiagram(false) : undefined} />;
 }
