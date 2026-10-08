@@ -1,5 +1,5 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
-import Fuse from "fuse.js";
+import { useEffect, useId, useRef, useState } from "react";
+import type Fuse from "fuse.js";
 import { Search, X } from "lucide-react";
 import type { Person } from "@family-tree/shared";
 import type { Family } from "../lib/data";
@@ -14,12 +14,17 @@ export default function SearchBox({ family, onPick }: { family: Family; onPick: 
   const box = useRef<HTMLDivElement>(null);
   const listId = useId();
 
-  const fuse = useMemo(
-    () => new Fuse(family.tree.persons, { keys: ["fullName", "aliases"], threshold: 0.32, ignoreLocation: true }),
-    [family],
-  );
+  // The fuzzy-search library loads on first use, not with the page.
+  const [fuse, setFuse] = useState<Fuse<Person> | null>(null);
+  const loadSearch = () => {
+    if (fuse) return;
+    void import("fuse.js").then(({ default: F }) =>
+      setFuse(new F(family.tree.persons, { keys: ["fullName", "aliases"], threshold: 0.32, ignoreLocation: true })),
+    );
+  };
+  useEffect(() => setFuse(null), [family]);
   const term = q.trim();
-  const results = term.length >= 2 ? fuse.search(term, { limit: 8 }).map((r) => r.item) : [];
+  const results = fuse && term.length >= 2 ? fuse.search(term, { limit: 8 }).map((r) => r.item) : [];
   const show = open && term.length >= 2;
 
   useEffect(() => setActive(0), [term]);
@@ -79,9 +84,14 @@ export default function SearchBox({ family, onPick }: { family: Family; onPick: 
         aria-label="Search the family"
         onChange={(e) => {
           setQ(clean(e.target.value));
+          loadSearch();
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setOpen(true);
+          loadSearch();
+        }}
+        onPointerEnter={loadSearch}
         onKeyDown={onKey}
       />
       {q && (

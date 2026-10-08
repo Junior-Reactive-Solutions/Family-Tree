@@ -1,4 +1,20 @@
-import { TreeSchema, type Person, type Tree } from "@family-tree/shared";
+import type { Person, Tree } from "@family-tree/shared";
+
+/**
+ * Light shape check for data from our own API. The full zod schema stays on the server,
+ * which keeps the validation library out of the first page load.
+ */
+function asTree(x: unknown): Tree {
+  const t = x as Partial<Tree> | null;
+  const ok =
+    !!t &&
+    Array.isArray(t.persons) &&
+    Array.isArray(t.unions) &&
+    Array.isArray(t.parentage) &&
+    t.persons.every((p) => typeof p?.id === "string" && typeof p.fullName === "string" && Array.isArray(p.aliases));
+  if (!ok) throw new Error("Unexpected family data");
+  return t as Tree;
+}
 import type { Datum } from "family-chart";
 
 export interface Family {
@@ -35,7 +51,7 @@ function readCache(): Tree | null {
     if (!raw) return null;
     const { at, tree } = JSON.parse(raw) as { at: number; tree: unknown };
     if (Date.now() - at > CACHE_MS) return null;
-    return TreeSchema.parse(tree);
+    return asTree(tree);
   } catch {
     return null;
   }
@@ -63,7 +79,7 @@ export async function loadFamily(): Promise<Family> {
   if (cached) return buildFamily(cached);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const tree = TreeSchema.parse(await fetchJson(`${API}/api/tree`, 55000));
+      const tree = asTree(await fetchJson(`${API}/api/tree`, 55000));
       writeCache(tree);
       return buildFamily(tree);
     } catch (e) {
@@ -73,7 +89,7 @@ export async function loadFamily(): Promise<Family> {
     }
   }
   if (!import.meta.env.DEV) throw new Error("Family data unavailable");
-  return buildFamily(TreeSchema.parse(await fetchJson("/tree.snapshot.json", 10000)));
+  return buildFamily(asTree(await fetchJson("/tree.snapshot.json", 10000)));
 }
 
 const push = <K, V>(m: Map<K, V[]>, k: K, v: V) => {
