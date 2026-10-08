@@ -1,14 +1,16 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Route, Routes, useSearchParams } from "react-router";
-import { GitBranch, ListTree, MessageSquarePlus, Moon, Network, Sun } from "lucide-react";
+import { GitBranch, ListTree, MessageSquarePlus, Moon, Sun } from "lucide-react";
 import { FamilyContext } from "./lib/context";
 import { AccessRequired, loadFamily, type Family } from "./lib/data";
 import AccessGate from "./components/AccessGate";
+import Loading from "./components/Loading";
 import SearchBox from "./components/SearchBox";
 import PersonDrawer from "./components/PersonDrawer";
 import Chatbot from "./components/Chatbot";
 import Home from "./pages/Home";
 import Branches from "./pages/Branches";
+import NotFound from "./pages/NotFound";
 
 const TreePage = lazy(() => import("./pages/TreePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
@@ -17,6 +19,7 @@ export default function App() {
   const [family, setFamily] = useState<Family | null>(null);
   const [error, setError] = useState(false);
   const [locked, setLocked] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [dark, setDark] = useState(() => {
     try {
       return localStorage.getItem("theme") === "dark";
@@ -32,9 +35,12 @@ export default function App() {
   const load = () => {
     setLocked(false);
     setError(false);
+    setSlow(false);
+    const t = setTimeout(() => setSlow(true), 2500);
     loadFamily()
       .then(setFamily)
-      .catch((e) => (e instanceof AccessRequired ? setLocked(true) : setError(true)));
+      .catch((e) => (e instanceof AccessRequired ? setLocked(true) : setError(true)))
+      .finally(() => clearTimeout(t));
   };
   useEffect(load, []);
   useEffect(() => {
@@ -65,7 +71,7 @@ export default function App() {
       <a className="skip" href="#main">Skip to content</a>
       <header className="site-header" ref={headerRef}>
         <Link to="/" className="brand">
-          <Network size={20} strokeWidth={1.75} aria-hidden="true" />
+          <img src="/favicon.svg" alt="" width={28} height={28} className="brand-mark" />
           <span>Bintukwanga Family</span>
         </Link>
         <nav aria-label="Main">
@@ -86,18 +92,23 @@ export default function App() {
         </button>
       </header>
       <main id="main">
-        {error && <p className="notice">The family data could not be loaded. Please refresh.</p>}
+        {error && (
+          <div className="loading" role="alert">
+            <p>The family data could not be loaded.</p>
+            <button className="btn" onClick={load}>Try again</button>
+          </div>
+        )}
         {locked && <AccessGate onUnlocked={load} />}
-        {!family && !error && !locked && <p className="notice">Loading the family tree. The first visit after a quiet period can take up to a minute.</p>}
+        {!family && !error && !locked && <Loading slow={slow} />}
         {family && (
           <FamilyContext.Provider value={{ family, openPerson, openChat: (p) => { setChatPath(p); setChatOpen(true); } }}>
-            <Suspense fallback={<p className="notice">Loading...</p>}>
+            <Suspense fallback={<Loading />}>
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/branches" element={<Branches />} />
                 <Route path="/tree" element={<TreePage />} />
                 <Route path="/admin" element={<AdminPage />} />
-                <Route path="*" element={<Home />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </Suspense>
             <PersonDrawer />
@@ -108,9 +119,9 @@ export default function App() {
           </FamilyContext.Provider>
         )}
       </main>
-      <footer className="site-footer">
+      {family && <footer className="site-footer">
         <p>Bintukwanga family tree. A private family record.</p>
-      </footer>
+      </footer>}
     </>
   );
 }

@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import cookieParser from "cookie-parser";
 import express, { type NextFunction, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
+import { limiters } from "./limits.js";
 import { z } from "zod";
 
 const COOKIE = "family_access";
@@ -47,10 +47,10 @@ export function accessRouter() {
     res.set("Cache-Control", "no-store");
     next();
   });
-  const limiter = rateLimit({ windowMs: 15 * 60_000, limit: 8, standardHeaders: true, legacyHeaders: false });
+  const limiter = limiters(8, 100);
 
   r.get("/", (req, res) => res.json({ ok: hasAccess(req), required: gateEnabled }));
-  r.post("/", limiter, (req, res) => {
+  r.post("/", ...limiter, (req, res) => {
     const parsed = BodySchema.safeParse(req.body);
     if (!parsed.success || !code) return res.status(401).json({ error: "Incorrect code" });
     if (!timingSafeEqual(digest(parsed.data.code), digest(code))) return res.status(401).json({ error: "Incorrect code" });
