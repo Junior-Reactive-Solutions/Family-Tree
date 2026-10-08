@@ -1,0 +1,13 @@
+{
+  "name": "family-tree",
+  "private": true,
+  "packageManager": "pnpm@10.33.2",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "seed:build": "pnpm --filter @family-tree/api seed:build",
+    "dev": "pnpm seed:build && pnpm --filter @family-tree/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r --if-present test"
+  }
+}

@@ -1,0 +1,7 @@
+name: Bug report
+description: Something is broken
+labels: [bug]
+body:
+  - type: textarea
+    attributes: { label: What happened, description: Include steps, device and browser }
+    validations: { required: true }

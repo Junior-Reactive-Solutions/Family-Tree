@@ -1,0 +1,29 @@
+/*
+  Palette: warm heritage scheme (deep forest green, ivory, terracotta).
+  TODO: confirm/replace with the final coolors.co palette URL: https://coolors.co/
+  60/30/10: dominant = ivory surfaces, secondary = forest green (header, cards, connectors),
+  accent = terracotta (primary buttons, focus ring, active node, links). Accent <= ~10% of any panel.
+*/
+:root {
+  --color-dominant: #faf6ec;
+  --color-secondary: #1f3d2e;
+  --color-secondary-soft: #e4ebe1;
+  --color-accent: #a8481f;
+  --color-text: #1b2a22;
+  --color-text-on-secondary: #faf6ec;
+  --color-muted: #6b7570;
+  --color-border: #cfd8cb;
+  --font-heading: "Cormorant Garamond", Georgia, serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --radius: 10px;
+}
+:root[data-theme="dark"] {
+  --color-dominant: #14211a;
+  --color-secondary: #243f31;
+  --color-secondary-soft: #1c3025;
+  --color-accent: #e0875a;
+  --color-text: #f1ecdf;
+  --color-text-on-secondary: #f1ecdf;
+  --color-muted: #9fb0a5;
+  --color-border: #34503f;
+}
