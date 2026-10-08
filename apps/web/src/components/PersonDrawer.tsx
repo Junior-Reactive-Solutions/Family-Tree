@@ -8,7 +8,7 @@ import { slideIn } from "../lib/motion";
 import Avatar from "./Avatar";
 
 export default function PersonDrawer() {
-  const { family, openPerson } = useFamily();
+  const { family, openPerson, openChat } = useFamily();
   const [params] = useSearchParams();
   const path = params.get("person");
   const person = path ? family.byPath.get(path) : undefined;
@@ -75,7 +75,7 @@ export default function PersonDrawer() {
             View in tree
           </Link>
         )}
-        <button className="btn ghost" disabled title="Suggestions open in a later phase">
+        <button className="btn ghost" onClick={() => openChat(person.path)}>
           <MessageSquarePlus size={16} strokeWidth={1.75} aria-hidden="true" /> Suggest a correction
         </button>
       </div>

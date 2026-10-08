@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Route, Routes, useSearchParams } from "react-router";
-import { GitBranch, ListTree, Moon, Network, Sun } from "lucide-react";
+import { GitBranch, ListTree, MessageSquarePlus, Moon, Network, Sun } from "lucide-react";
 import { FamilyContext } from "./lib/context";
 import { loadFamily, type Family } from "./lib/data";
 import SearchBox from "./components/SearchBox";
 import PersonDrawer from "./components/PersonDrawer";
+import Chatbot from "./components/Chatbot";
 import Home from "./pages/Home";
 import Branches from "./pages/Branches";
 
@@ -21,6 +22,8 @@ export default function App() {
     }
   });
   const [params, setParams] = useSearchParams();
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatPath, setChatPath] = useState<string | null>(null);
 
   useEffect(() => {
     loadFamily().then(setFamily).catch(() => setError(true));
@@ -69,7 +72,7 @@ export default function App() {
         {error && <p className="notice">The family data could not be loaded. Please refresh.</p>}
         {!family && !error && <p className="notice">Loading the family tree...</p>}
         {family && (
-          <FamilyContext.Provider value={{ family, openPerson }}>
+          <FamilyContext.Provider value={{ family, openPerson, openChat: (p) => { setChatPath(p); setChatOpen(true); } }}>
             <Suspense fallback={<p className="notice">Loading...</p>}>
               <Routes>
                 <Route path="/" element={<Home />} />
@@ -79,6 +82,10 @@ export default function App() {
               </Routes>
             </Suspense>
             <PersonDrawer />
+            <button className="chat-fab" aria-label="Suggest a correction" onClick={() => { setChatPath(null); setChatOpen((o) => !o); }}>
+              <MessageSquarePlus size={24} strokeWidth={1.75} />
+            </button>
+            <Chatbot family={family} open={chatOpen} onClose={() => setChatOpen(false)} prefillPath={chatPath} />
           </FamilyContext.Provider>
         )}
       </main>

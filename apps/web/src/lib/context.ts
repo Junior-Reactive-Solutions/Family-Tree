@@ -4,6 +4,7 @@ import type { Family } from "./data";
 interface Ctx {
   family: Family;
   openPerson: (path: string | null) => void;
+  openChat: (path: string | null) => void;
 }
 export const FamilyContext = createContext<Ctx | null>(null);
 export function useFamily(): Ctx {
