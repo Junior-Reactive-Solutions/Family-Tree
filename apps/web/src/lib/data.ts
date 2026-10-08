@@ -17,7 +17,8 @@ async function fetchJson(url: string, ms: number): Promise<unknown> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), ms);
   try {
-    const res = await fetch(url, { signal: ctrl.signal });
+    const res = await fetch(url, { signal: ctrl.signal, credentials: "include" });
+    if (res.status === 401) throw new AccessRequired();
     if (!res.ok) throw new Error(String(res.status));
     return await res.json();
   } finally {
@@ -26,11 +27,14 @@ async function fetchJson(url: string, ms: number): Promise<unknown> {
 }
 
 /** API first (Render may be waking from idle), build-time snapshot as fallback. */
+export class AccessRequired extends Error {}
+
 export async function loadFamily(): Promise<Family> {
   {
     try {
       return buildFamily(TreeSchema.parse(await fetchJson(`${API}/api/tree`, 55000)));
-    } catch {
+    } catch (e) {
+      if (e instanceof AccessRequired) throw e;
       /* fall through to snapshot */
     }
   }

@@ -9,6 +9,8 @@ import helmet from "helmet";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { SuggestionInputSchema, TreeSchema, type Tree } from "@family-tree/shared";
+import cookieParser from "cookie-parser";
+import { accessRouter, requireAccess } from "./access.js";
 import { adminRouter } from "./admin.js";
 import { parentage, persons, suggestions, unions } from "./db/schema.js";
 
@@ -49,10 +51,12 @@ app.set("trust proxy", 1);
 app.use(helmet());
 app.use(cors({ origin: origins, credentials: true }));
 app.use(express.json({ limit: "10kb" }));
+app.use(cookieParser());
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 100, standardHeaders: true, legacyHeaders: false }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, db: !!db }));
-app.get("/api/tree", async (_req, res) => {
+app.use("/api/access", accessRouter());
+app.get("/api/tree", requireAccess, async (_req, res) => {
   try {
     res.set("Cache-Control", "public, max-age=300");
     res.json(await getTree());
@@ -63,7 +67,7 @@ app.get("/api/tree", async (_req, res) => {
 });
 
 const suggestionLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 5, standardHeaders: true, legacyHeaders: false });
-app.post("/api/suggestions", suggestionLimiter, async (req, res) => {
+app.post("/api/suggestions", requireAccess, suggestionLimiter, async (req, res) => {
   const parsed = SuggestionInputSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid submission" });
   const d = parsed.data;
