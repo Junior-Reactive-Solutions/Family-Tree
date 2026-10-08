@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Route, Routes, useSearchParams } from "react-router";
 import { GitBranch, ListTree, MessageSquarePlus, Moon, Network, Sun } from "lucide-react";
 import { FamilyContext } from "./lib/context";
@@ -25,6 +25,7 @@ export default function App() {
     }
   });
   const [params, setParams] = useSearchParams();
+  const headerRef = useRef<HTMLElement>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [chatPath, setChatPath] = useState<string | null>(null);
 
@@ -36,6 +37,13 @@ export default function App() {
       .catch((e) => (e instanceof AccessRequired ? setLocked(true) : setError(true)));
   };
   useEffect(load, []);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => document.documentElement.style.setProperty("--header-h", el.offsetHeight + "px"));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     try {
@@ -55,7 +63,7 @@ export default function App() {
   return (
     <>
       <a className="skip" href="#main">Skip to content</a>
-      <header className="site-header">
+      <header className="site-header" ref={headerRef}>
         <Link to="/" className="brand">
           <Network size={20} strokeWidth={1.75} aria-hidden="true" />
           <span>Bintukwanga Family</span>
@@ -100,6 +108,9 @@ export default function App() {
           </FamilyContext.Provider>
         )}
       </main>
+      <footer className="site-footer">
+        <p>Bintukwanga family tree. A private family record.</p>
+      </footer>
     </>
   );
 }
