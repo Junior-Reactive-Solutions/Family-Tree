@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router";
 import type { Person } from "@family-tree/shared";
 import { useFamily } from "../lib/context";
 import { displayName } from "../lib/data";
@@ -29,13 +30,15 @@ function Node({ p }: { p: Person }) {
 
 export default function Branches() {
   const { family } = useFamily();
+  const [params] = useSearchParams();
+  const open = params.get("open") ?? "1";
   const heads = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => family.byPath.get(String(n))!);
   return (
     <section className="container">
       <h1>Branches</h1>
       <p className="muted">Each branch follows the children of one child of Antiel and Maria Christine.</p>
       {heads.map((h) => (
-        <details key={h.id} className="acc" open={h.path === "1"}>
+        <details key={h.id} className="acc" open={h.path === open}>
           <summary>
             Branch {h.path}: {displayName(h)}
             {h.isDeceased && <span className="badge">Late</span>}

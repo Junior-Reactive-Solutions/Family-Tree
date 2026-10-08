@@ -124,3 +124,27 @@ button, input { font: inherit; color: inherit; }
 
 .tree-controls { align-items: center; flex-wrap: wrap; max-width: calc(100% - 24px); }
 .tree-controls select { min-height: 40px; margin: 0 2px; padding: 0 .5rem; border-radius: 8px; border: 0; background: var(--color-dominant); color: var(--color-text); }
+
+/* Touch targets and mobile layout */
+.search input, .tree-controls select, .form input, .admin-list select, .chat input, .chat textarea { min-height: 44px; }
+.search { min-height: 44px; }
+.link { min-height: 44px; display: inline-flex; align-items: center; }
+.acc summary { display: flex; align-items: center; }
+body { display: flex; flex-direction: column; min-height: 100dvh; }
+main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.tree-wrap { height: auto; flex: 1; min-height: 60dvh; }
+@media (max-width: 767px) {
+  .tree-controls { top: auto; bottom: 84px; left: 8px; right: 80px; max-width: none; justify-content: center; }
+  .hero { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+  .chat { right: 8px; left: 8px; width: auto; bottom: 76px; }
+}
+.tree-wrap .f3 { position: absolute; inset: 0; height: auto; }
+.chat-fab { z-index: 45; }
+.chat { z-index: 44; }
+.drawer { padding-bottom: 5.5rem; }
+@media (max-width: 767px) {
+  .tree-controls { flex-wrap: nowrap; overflow-x: auto; }
+  .tree-controls > * { flex: none; }
+}
+.skip { position: absolute; left: -9999px; top: 0; z-index: 100; background: var(--color-accent); color: #fff; padding: .75rem 1rem; }
+.skip:focus { left: 8px; top: 8px; }

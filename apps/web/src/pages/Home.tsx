@@ -12,6 +12,7 @@ export default function Home() {
   const stat2 = useRef<HTMLElement>(null);
   const stat3 = useRef<HTMLElement>(null);
   const heads = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => family.byPath.get(String(n))!);
+  const narrow = window.matchMedia("(max-width: 767px)").matches;
   const total = family.tree.persons.length;
   const living = family.tree.persons.filter((p) => !p.isDeceased).length;
 
@@ -43,7 +44,7 @@ export default function Home() {
         <h2 id="branches-h">The nine branches</h2>
         <div className="branch-grid" ref={cards}>
           {heads.map((h) => (
-            <Link key={h.id} to={`/tree?focus=${h.path}`} className="branch-card">
+            <Link key={h.id} to={narrow ? `/branches?open=${h.path}` : `/tree?focus=${h.path}`} className="branch-card">
               <span className="branch-no">Branch {h.path}</span>
               <h3>{displayName(h)}</h3>
               <p className="muted">
