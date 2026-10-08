@@ -72,7 +72,7 @@ export default function App() {
       </header>
       <main id="main">
         {error && <p className="notice">The family data could not be loaded. Please refresh.</p>}
-        {!family && !error && <p className="notice">Loading the family tree...</p>}
+        {!family && !error && <p className="notice">Loading the family tree. The first visit after a quiet period can take up to a minute.</p>}
         {family && (
           <FamilyContext.Provider value={{ family, openPerson, openChat: (p) => { setChatPath(p); setChatOpen(true); } }}>
             <Suspense fallback={<p className="notice">Loading...</p>}>
