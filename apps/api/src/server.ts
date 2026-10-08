@@ -9,6 +9,7 @@ import helmet from "helmet";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { SuggestionInputSchema, TreeSchema, type Tree } from "@family-tree/shared";
+import { adminRouter } from "./admin.js";
 import { parentage, persons, suggestions, unions } from "./db/schema.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -85,6 +86,8 @@ app.post("/api/suggestions", suggestionLimiter, async (req, res) => {
     return res.status(500).json({ error: "Something went wrong" });
   }
 });
+
+app.use("/api/admin", adminRouter(db));
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 app.listen(port, () => console.log(`api listening on http://localhost:${port} (db: ${db ? "neon" : "seed file"})`));
