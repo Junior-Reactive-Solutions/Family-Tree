@@ -1,2 +1,20 @@
+# Bintukwanga Family Tree is a private family record behind an access code.
+# Search engines are asked not to crawl or index it.
+#
+# Link-preview bots may read only the home page and share image,
+# so links shared in chat apps show a title and picture. Neither contains family data.
+User-agent: facebookexternalhit
+User-agent: Facebot
+User-agent: Twitterbot
+User-agent: LinkedInBot
+User-agent: Slackbot-LinkExpanding
+User-agent: WhatsApp
+User-agent: TelegramBot
+User-agent: Discordbot
+Allow: /$
+Allow: /og-image.png
+Allow: /favicon.svg
+Disallow: /
+
 User-agent: *
 Disallow: /

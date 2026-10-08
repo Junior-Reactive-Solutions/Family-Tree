@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Route, Routes, useSearchParams } from "react-router";
-import { GitBranch, ListTree, MessageSquarePlus, Moon, Sun } from "lucide-react";
+import { ArrowUpRight, GitBranch, House, ListTree, MessageSquarePlus, Moon, Sun } from "lucide-react";
 import { FamilyContext } from "./lib/context";
 import { AccessRequired, loadFamily, type Family } from "./lib/data";
 import AccessGate from "./components/AccessGate";
@@ -75,6 +75,9 @@ export default function App() {
           <span>Bintukwanga Family</span>
         </Link>
         <nav aria-label="Main">
+          <NavLink to="/" end>
+            <House size={16} strokeWidth={1.75} aria-hidden="true" /> Home
+          </NavLink>
           <NavLink to="/branches">
             <ListTree size={16} strokeWidth={1.75} aria-hidden="true" /> Branches
           </NavLink>
@@ -123,9 +126,22 @@ export default function App() {
           </FamilyContext.Provider>
         )}
       </main>
-      {family && <footer className="site-footer">
-        <p>Bintukwanga family tree. A private family record.</p>
-      </footer>}
+      <footer className="site-footer">
+        <div className="footer-inner">
+          <p className="footer-family">
+            <img src="/favicon.svg" alt="" width={20} height={20} />
+            Bintukwanga Family Tree · A private family record
+          </p>
+          <p className="footer-credit">
+            Designed and built by{" "}
+            <a href="https://jrcom.vercel.app/" target="_blank" rel="noopener noreferrer">
+              JuniorReactive
+              <ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" />
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          </p>
+        </div>
+      </footer>
     </>
   );
 }

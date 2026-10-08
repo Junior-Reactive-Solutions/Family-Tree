@@ -300,3 +300,14 @@ main:has(.tree-wrap) + .site-footer { display: none; }
 :root[data-theme="dark"] .tree-card.spouse.late { background: #2a3530; color: var(--color-text); }
 .badge { width: fit-content; justify-self: start; }
 .admin-list p, .bubble { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Footer with team credit */
+.site-footer { text-align: left; padding: 1.5rem 24px; background: var(--color-secondary-soft); }
+.footer-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1.5rem; }
+.footer-family { display: inline-flex; align-items: center; gap: .5rem; color: var(--color-text); }
+.footer-family img { border-radius: 5px; }
+.footer-credit a { display: inline-flex; align-items: center; gap: .15rem; min-height: 44px; color: var(--color-accent); font-weight: 600; text-decoration: none; border-bottom: 1px solid transparent; }
+.footer-credit a:hover { border-bottom-color: currentColor; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+@media (max-width: 767px) { .footer-inner { flex-direction: column; align-items: flex-start; } .site-footer { padding-bottom: 5.5rem; } }
+#root { min-height: 100dvh; display: flex; flex-direction: column; }

@@ -1,0 +1,11 @@
+/* TEAM */
+Built by: JuniorReactive
+Site: https://jrcom.vercel.app/
+Location: Uganda
+
+/* SITE */
+Last update: 2026-10-08
+Language: English
+Standards: HTML5, CSS3, WCAG 2.1 AA
+Components: React, Vite, TypeScript, Express, Drizzle ORM, family-chart, anime.js, lucide
+Hosting: Vercel (web), Render (API), Neon (database)

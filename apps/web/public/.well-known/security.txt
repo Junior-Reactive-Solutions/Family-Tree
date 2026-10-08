@@ -1,0 +1,6 @@
+# Found a security problem with this site? Please tell the team privately.
+Contact: https://jrcom.vercel.app/
+Contact: https://github.com/Junior-Reactive-Solutions/Family-Tree/security/advisories/new
+Expires: 2027-10-08T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://family-tree-sepia-nine.vercel.app/.well-known/security.txt
