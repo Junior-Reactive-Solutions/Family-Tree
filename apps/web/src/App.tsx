@@ -7,13 +7,13 @@ import AccessGate from "./components/AccessGate";
 import Loading from "./components/Loading";
 import SearchBox from "./components/SearchBox";
 import PersonDrawer from "./components/PersonDrawer";
-import Chatbot from "./components/Chatbot";
 import Home from "./pages/Home";
 import Branches from "./pages/Branches";
 import NotFound from "./pages/NotFound";
 
 const TreePage = lazy(() => import("./pages/TreePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
+const Chatbot = lazy(() => import("./components/Chatbot"));
 
 export default function App() {
   const [family, setFamily] = useState<Family | null>(null);
@@ -115,7 +115,11 @@ export default function App() {
             <button className="chat-fab" aria-label="Suggest a correction" onClick={() => { setChatPath(null); setChatOpen((o) => !o); }}>
               <MessageSquarePlus size={24} strokeWidth={1.75} />
             </button>
-            <Chatbot family={family} open={chatOpen} onClose={() => setChatOpen(false)} prefillPath={chatPath} />
+            {chatOpen && (
+              <Suspense fallback={null}>
+                <Chatbot family={family} open={chatOpen} onClose={() => setChatOpen(false)} prefillPath={chatPath} />
+              </Suspense>
+            )}
           </FamilyContext.Provider>
         )}
       </main>

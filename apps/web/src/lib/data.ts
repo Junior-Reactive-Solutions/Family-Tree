@@ -55,22 +55,24 @@ export function clearFamilyCache() {
   }
 }
 
-/** API first (Render may be waking from idle), build-time snapshot as fallback. */
 export class AccessRequired extends Error {}
 
+/** Session cache, then the API (Render may be waking from idle; one retry for deploys). Snapshot only in development. */
 export async function loadFamily(): Promise<Family> {
   const cached = readCache();
   if (cached) return buildFamily(cached);
-  {
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const tree = TreeSchema.parse(await fetchJson(`${API}/api/tree`, 55000));
       writeCache(tree);
       return buildFamily(tree);
     } catch (e) {
       if (e instanceof AccessRequired) throw e;
-      /* fall through to snapshot */
+      // A deploy or brief outage: wait a moment and try once more.
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 2500));
     }
   }
+  if (!import.meta.env.DEV) throw new Error("Family data unavailable");
   return buildFamily(TreeSchema.parse(await fetchJson("/tree.snapshot.json", 10000)));
 }
 

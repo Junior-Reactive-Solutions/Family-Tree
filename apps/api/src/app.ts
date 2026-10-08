@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import compression from "compression";
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
@@ -50,6 +51,7 @@ app.disable("x-powered-by");
 // Production traffic passes Vercel then Render, so 2 hops; set TRUST_PROXY to match the deployment.
 app.set("trust proxy", Number(process.env.TRUST_PROXY ?? 1));
 app.use(helmet());
+app.use(compression());
 app.use(cors({ origin: origins, credentials: true }));
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
