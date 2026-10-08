@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>Bintukwanga Family Tree</title>
+    <title>Bintukwanga Family Tree · A private family record</title>
     <meta name="description" content="A private record of the Bintukwanga family: five generations of the descendants of Antiel Bintukwanga and Maria Christine Nakayima, across nine branches." />
     <link rel="canonical" href="https://family-tree-sepia-nine.vercel.app/" />
     <meta property="og:type" content="website" />
@@ -33,7 +33,20 @@
     <link rel="preload" href="/api/tree" as="fetch" crossorigin="use-credentials" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown until the app starts, and to visitors or tools without JavaScript. Contains no family data. -->
+      <a class="skip" href="#main">Skip to content</a>
+      <header class="site-header">
+        <a href="/" class="brand"><img src="/favicon.svg" alt="" width="28" height="28" class="brand-mark" /><span>Bintukwanga Family</span></a>
+        <nav aria-label="Main"><a href="/">Home</a><a href="/branches">Branches</a><a href="/tree">Tree</a></nav>
+      </header>
+      <main id="main" class="container narrow loading">
+        <h1>Bintukwanga Family Tree</h1>
+        <p>A private record of the descendants of Antiel Bintukwanga and Maria Christine Nakayima, shared with relatives through a family access code.</p>
+        <noscript><p>This site needs JavaScript. Please turn it on in your browser settings, then reload the page.</p></noscript>
+        <p><a href="/privacy">How this site handles privacy</a></p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
