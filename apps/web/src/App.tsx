@@ -2,7 +2,8 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Link, NavLink, Route, Routes, useSearchParams } from "react-router";
 import { GitBranch, ListTree, MessageSquarePlus, Moon, Network, Sun } from "lucide-react";
 import { FamilyContext } from "./lib/context";
-import { loadFamily, type Family } from "./lib/data";
+import { AccessRequired, loadFamily, type Family } from "./lib/data";
+import AccessGate from "./components/AccessGate";
 import SearchBox from "./components/SearchBox";
 import PersonDrawer from "./components/PersonDrawer";
 import Chatbot from "./components/Chatbot";
@@ -15,6 +16,7 @@ const AdminPage = lazy(() => import("./pages/AdminPage"));
 export default function App() {
   const [family, setFamily] = useState<Family | null>(null);
   const [error, setError] = useState(false);
+  const [locked, setLocked] = useState(false);
   const [dark, setDark] = useState(() => {
     try {
       return localStorage.getItem("theme") === "dark";
@@ -26,9 +28,14 @@ export default function App() {
   const [chatOpen, setChatOpen] = useState(false);
   const [chatPath, setChatPath] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadFamily().then(setFamily).catch(() => setError(true));
-  }, []);
+  const load = () => {
+    setLocked(false);
+    setError(false);
+    loadFamily()
+      .then(setFamily)
+      .catch((e) => (e instanceof AccessRequired ? setLocked(true) : setError(true)));
+  };
+  useEffect(load, []);
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     try {
@@ -72,7 +79,8 @@ export default function App() {
       </header>
       <main id="main">
         {error && <p className="notice">The family data could not be loaded. Please refresh.</p>}
-        {!family && !error && <p className="notice">Loading the family tree. The first visit after a quiet period can take up to a minute.</p>}
+        {locked && <AccessGate onUnlocked={load} />}
+        {!family && !error && !locked && <p className="notice">Loading the family tree. The first visit after a quiet period can take up to a minute.</p>}
         {family && (
           <FamilyContext.Provider value={{ family, openPerson, openChat: (p) => { setChatPath(p); setChatOpen(true); } }}>
             <Suspense fallback={<p className="notice">Loading...</p>}>
