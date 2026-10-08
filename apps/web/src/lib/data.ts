@@ -26,13 +26,46 @@ async function fetchJson(url: string, ms: number): Promise<unknown> {
   }
 }
 
+const CACHE_KEY = "ft-tree-v1";
+const CACHE_MS = 10 * 60 * 1000;
+
+function readCache(): Tree | null {
+  try {
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if (!raw) return null;
+    const { at, tree } = JSON.parse(raw) as { at: number; tree: unknown };
+    if (Date.now() - at > CACHE_MS) return null;
+    return TreeSchema.parse(tree);
+  } catch {
+    return null;
+  }
+}
+function writeCache(tree: Tree) {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), tree }));
+  } catch {
+    /* storage unavailable or full */
+  }
+}
+export function clearFamilyCache() {
+  try {
+    sessionStorage.removeItem(CACHE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /** API first (Render may be waking from idle), build-time snapshot as fallback. */
 export class AccessRequired extends Error {}
 
 export async function loadFamily(): Promise<Family> {
+  const cached = readCache();
+  if (cached) return buildFamily(cached);
   {
     try {
-      return buildFamily(TreeSchema.parse(await fetchJson(`${API}/api/tree`, 55000)));
+      const tree = TreeSchema.parse(await fetchJson(`${API}/api/tree`, 55000));
+      writeCache(tree);
+      return buildFamily(tree);
     } catch (e) {
       if (e instanceof AccessRequired) throw e;
       /* fall through to snapshot */

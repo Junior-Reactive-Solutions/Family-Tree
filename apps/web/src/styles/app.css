@@ -218,3 +218,84 @@ main:has(.tree-wrap) + .site-footer { display: none; }
 .nav-name small { font-weight: 400; }
 .navigator .chips { margin-top: .25rem; }
 .nav-name .badge { justify-self: start; margin-left: 0; }
+
+/* ---------- Polish pass ---------- */
+.brand-mark { border-radius: 7px; display: block; }
+.loading { display: grid; justify-items: center; gap: .5rem; text-align: center; padding: clamp(3rem, 12vh, 7rem) 16px; }
+.loading img { border-radius: 14px; }
+.loading p { margin: 0; }
+.loading .muted { max-width: 42ch; }
+
+/* Search */
+.search-clear { background: none; border: 0; min-width: 32px; min-height: 32px; display: grid; place-items: center; cursor: pointer; color: var(--color-muted); border-radius: 6px; }
+.search-results { max-height: min(420px, 60dvh); overflow-y: auto; z-index: 30; }
+.search-results li { list-style: none; }
+.search-results button { display: grid; gap: .1rem; }
+.search-results button.active, .search-results button:hover { background: var(--color-secondary-soft); }
+.search-results button > span { display: flex; align-items: center; flex-wrap: wrap; }
+.search-results small { font-size: .78rem; }
+.search-empty { padding: .75rem; color: var(--color-muted); }
+
+/* Drawer sits under the header; backdrop on tablet and phone */
+.drawer { top: var(--header-h, 64px); z-index: 30; }
+.drawer-backdrop { display: none; }
+.drawer .aliases { margin: .75rem 0 0; font-size: .9rem; }
+.drawer .drawer-actions { margin: 1rem 0 .25rem; }
+.drawer .drawer-actions .btn { flex: 1 1 auto; justify-content: center; }
+.drawer section h3 { margin: 1.25rem 0 .5rem; }
+.drawer .nav-row { min-height: 52px; }
+@media (max-width: 1279px) {
+  .drawer-backdrop { display: block; position: fixed; inset: 0; z-index: 29; background: rgb(16 28 22 / .35); }
+}
+@media (max-width: 767px) {
+  .drawer { top: auto; }
+}
+
+/* Tree: info bar, legend and a clear centred card */
+.tree-info { position: absolute; z-index: 4; top: 12px; right: 12px; display: grid; justify-items: end; gap: .4rem; pointer-events: none; }
+.tree-focus { margin: 0; padding: .4rem .75rem; background: var(--color-dominant); border: 1px solid var(--color-border); border-radius: 999px; font-size: .9rem; }
+.legend { list-style: none; margin: 0; padding: .35rem .7rem; display: flex; gap: .8rem; background: var(--color-dominant); border: 1px solid var(--color-border); border-radius: var(--radius); font-size: .8rem; color: var(--color-muted); }
+.legend li { display: flex; align-items: center; gap: .35rem; }
+.sw { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+.sw-blood { background: var(--color-secondary); }
+.sw-spouse { background: var(--color-secondary-soft); border: 1px solid var(--color-border); }
+.sw-late { background: #8a918d; }
+.sw-main { background: transparent; border: 3px solid var(--color-accent); }
+.f3 .card-main .tree-card { border-color: var(--color-accent); box-shadow: 0 0 0 3px var(--color-accent), 0 8px 20px rgb(0 0 0 / .18); }
+.tree-card { transition: box-shadow .2s ease; box-shadow: 0 2px 6px rgb(0 0 0 / .08); }
+.tree-card:hover { box-shadow: 0 0 0 2px var(--color-accent); }
+@media (max-width: 1023px) { .legend { display: none; } }
+@media (max-width: 767px) { .tree-info { display: none; } }
+
+/* Branches */
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.page-head h1 { margin-bottom: .25rem; }
+.page-head p { margin: 0; }
+.page-tools { display: flex; flex-wrap: wrap; gap: .5rem; }
+.acc summary { gap: .9rem; list-style: none; padding: .75rem 1rem; }
+.acc summary::-webkit-details-marker { display: none; }
+.acc summary::after { content: ""; width: 10px; height: 10px; border-right: 2px solid var(--color-muted); border-bottom: 2px solid var(--color-muted); transform: rotate(45deg); margin-left: .5rem; transition: transform .2s ease; flex: none; }
+.acc[open] summary::after { transform: rotate(-135deg); }
+.acc-no { font-family: var(--font-heading); font-size: 1.8rem; font-weight: 700; color: var(--color-accent); min-width: 1.5ch; text-align: center; }
+.acc-title { flex: 1; display: grid; }
+.acc-title small { font-family: var(--font-body); font-size: .85rem; font-weight: 400; }
+.acc-count { font-family: var(--font-body); font-size: .85rem; font-weight: 500; color: var(--color-muted); white-space: nowrap; }
+.spouse-inline { font-size: .92rem; }
+@media (max-width: 767px) { .acc-count { display: none; } .page-tools .btn { flex: 1 1 auto; justify-content: center; } }
+
+/* Print: a clean list of the family */
+@media print {
+  .site-header, .site-footer, .chat-fab, .chat, .drawer, .drawer-backdrop, .page-tools, .skip { display: none !important; }
+  body { background: #fff; color: #000; display: block; }
+  .acc { border: 0; break-inside: avoid-page; }
+  .acc summary::after { display: none; }
+  .link { text-decoration: none; min-height: 0; padding: 0; }
+  .badge { border-color: #000; color: #000; }
+}
+.tree-info { top: auto; right: auto; bottom: 16px; left: 12px; justify-items: start; }
+.tree-card.late { filter: none; background: #46524c; border-color: transparent; }
+.tree-card.spouse.late { background: #ebeae4; color: var(--color-text); }
+.tree-card.late .avatar { filter: grayscale(1); opacity: .85; }
+.sw-late { background: #46524c; }
+:root[data-theme="dark"] .tree-card.spouse.late { background: #2a3530; color: var(--color-text); }
+.badge { width: fit-content; justify-self: start; }

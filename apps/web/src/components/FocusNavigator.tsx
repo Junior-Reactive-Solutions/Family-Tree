@@ -1,15 +1,19 @@
 import { useSearchParams } from "react-router";
-import { ChevronRight, GitBranch, Heart, IdCard, Users } from "lucide-react";
+import { GitBranch, Heart, IdCard, Users } from "lucide-react";
 import type { Person } from "@family-tree/shared";
 import { useFamily } from "../lib/context";
 import { displayName, generationOf } from "../lib/data";
 import Avatar from "./Avatar";
+import PersonRow from "./PersonRow";
+import { useTitle } from "../lib/useTitle";
 
 /** Phone-friendly way to move through the tree: one person at a time, tap to go up or down. */
 export default function FocusNavigator({ onDiagram }: { onDiagram: () => void }) {
   const { family, openPerson } = useFamily();
   const [params, setParams] = useSearchParams();
   const person = family.byPath.get(params.get("focus") ?? "1") ?? family.byPath.get("1")!;
+
+  useTitle(person.fullName);
 
   const go = (p: Person) => {
     if (!p.path) return openPerson(null);
@@ -32,18 +36,6 @@ export default function FocusNavigator({ onDiagram }: { onDiagram: () => void })
   const parents = family.parentsOf.get(person.id) ?? [];
   const siblings = (parents[0] ? family.childrenOf.get(parents[0].id) ?? [] : []).filter((s) => s.id !== person.id);
   const children = family.childrenOf.get(person.id) ?? [];
-
-  const Row = ({ p, hint }: { p: Person; hint?: string }) => (
-    <button className="nav-row" onClick={() => go(p)} disabled={!p.path}>
-      <Avatar person={p} size={40} />
-      <span className="nav-name">
-        {displayName(p)}
-        {p.isDeceased && <span className="badge">Late</span>}
-        {hint && <small className="muted">{hint}</small>}
-      </span>
-      {p.path && <ChevronRight size={20} strokeWidth={1.75} aria-hidden="true" />}
-    </button>
-  );
 
   return (
     <div className="navigator">
@@ -80,7 +72,7 @@ export default function FocusNavigator({ onDiagram }: { onDiagram: () => void })
       {parents.length > 0 && (
         <section>
           <h3 className="nav-h">Parents</h3>
-          <div className="nav-list">{parents.map((p) => <Row key={p.id} p={p} />)}</div>
+          <div className="nav-list">{parents.map((p) => <PersonRow key={p.id} person={p} onSelect={go} />)}</div>
         </section>
       )}
       <section>
@@ -91,7 +83,7 @@ export default function FocusNavigator({ onDiagram }: { onDiagram: () => void })
           <div className="nav-list">
             {children.map((c) => {
               const n = family.childrenOf.get(c.id)?.length ?? 0;
-              return <Row key={c.id} p={c} hint={n ? `${n} ${n === 1 ? "child" : "children"}` : undefined} />;
+              return <PersonRow key={c.id} person={c} onSelect={go} hint={n ? `${n} ${n === 1 ? "child" : "children"}` : undefined} />;
             })}
           </div>
         )}

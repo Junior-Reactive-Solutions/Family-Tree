@@ -5,11 +5,13 @@ import { useFamily } from "../lib/context";
 import { displayName } from "../lib/data";
 import { countUp, useFadeUp } from "../lib/motion";
 import { useMedia } from "../lib/useMedia";
+import { useTitle } from "../lib/useTitle";
 import Avatar from "../components/Avatar";
 
 export default function Home() {
   const { family } = useFamily();
   const narrow = useMedia("(max-width: 767px)");
+  useTitle("");
   const cards = useRef<HTMLDivElement>(null);
   const s1 = useRef<HTMLElement>(null);
   const s2 = useRef<HTMLElement>(null);

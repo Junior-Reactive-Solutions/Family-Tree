@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { LogOut, ShieldCheck } from "lucide-react";
 import { useFamily } from "../lib/context";
+import { clearFamilyCache } from "../lib/data";
+import { useTitle } from "../lib/useTitle";
 
 const API = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 type Suggestion = {
@@ -19,6 +21,7 @@ const STATUSES = ["new", "reviewed", "applied", "rejected"] as const;
 
 export default function AdminPage() {
   const { family } = useFamily();
+  useTitle("Admin");
   const [csrf, setCsrf] = useState<string | null>(null);
   const [checking, setChecking] = useState(true);
   const [tab, setTab] = useState<"suggestions" | "review">("suggestions");
@@ -82,11 +85,17 @@ export default function AdminPage() {
       method: "PATCH",
       body: JSON.stringify({ gender, needsReview: false, reviewNote: null }),
     });
-    if (r.ok) setQueue((xs) => xs.filter((x) => x.id !== id));
+    if (r.ok) {
+      clearFamilyCache();
+      setQueue((xs) => xs.filter((x) => x.id !== id));
+    }
   };
   const markOk = async (id: string) => {
     const r = await call(`/persons/${id}`, { method: "PATCH", body: JSON.stringify({ needsReview: false, reviewNote: null }) });
-    if (r.ok) setQueue((xs) => xs.filter((x) => x.id !== id));
+    if (r.ok) {
+      clearFamilyCache();
+      setQueue((xs) => xs.filter((x) => x.id !== id));
+    }
   };
 
   if (checking) return <p className="notice">Checking session...</p>;

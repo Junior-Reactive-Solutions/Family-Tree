@@ -6,6 +6,7 @@ import { Heart, HeartOff, List, Maximize, Users, UsersRound, ZoomIn, ZoomOut } f
 import "family-chart/styles/family-chart.css";
 import { useFamily } from "../lib/context";
 import { useMedia } from "../lib/useMedia";
+import { useTitle } from "../lib/useTitle";
 import FocusNavigator from "../components/FocusNavigator";
 import { displayName, initials } from "../lib/data";
 
@@ -21,7 +22,9 @@ function TreeCanvas({ onList }: { onList?: () => void }) {
   const [spouses, setSpouses] = useState(true);
   const [depth, setDepth] = useState(2);
   const focus = params.get("focus") ?? "1";
-  const focusId = (family.byPath.get(focus) ?? family.byPath.get("1")!).id;
+  const focusPerson = family.byPath.get(focus) ?? family.byPath.get("1")!;
+  const focusId = focusPerson.id;
+  useTitle(focusPerson.fullName);
 
   const chartData = useMemo(() => {
     if (spouses) return family.chart;
@@ -104,6 +107,18 @@ function TreeCanvas({ onList }: { onList?: () => void }) {
           <option value="">Branch</option>
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <option key={n} value={String(n)}>Branch {n}: {family.byPath.get(String(n))?.fullName.split(" ")[0]}</option>)}
         </select>
+      </div>
+      <div className="tree-info">
+        <p className="tree-focus">
+          <span className="muted">Centred on</span> <strong>{displayName(focusPerson)}</strong>
+          {focusPerson.path && focusPerson.path !== "0" && <span className="muted"> · Branch {focusPerson.path.split(".")[0]}</span>}
+        </p>
+        <ul className="legend" aria-label="Legend">
+          <li><span className="sw sw-blood" aria-hidden="true" /> Family member</li>
+          <li><span className="sw sw-spouse" aria-hidden="true" /> Married in</li>
+          <li><span className="sw sw-late" aria-hidden="true" /> Late</li>
+          <li><span className="sw sw-main" aria-hidden="true" /> Centred</li>
+        </ul>
       </div>
       <div className="f3" ref={host} aria-label="Interactive family tree. Use the Branches page for a text list." />
     </section>
