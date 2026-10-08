@@ -73,7 +73,9 @@ This reads the "Full family tree" page into `data/family.seed.json` (people, cou
 - **`m. Name` lines:** spouses. Write `m. Current; earlier m. First (late)` for remarriages; children belong to the most recent spouse.
 - **Notes:** `Born 23 April 2024`, `Twin` and `Also known as Vicky` are understood. Any other line goes to the admin review queue.
 
-People are addressed by position (`3.8.2`), and database ids derive from that. Add new children after their existing siblings so other people keep their ids.
+People are addressed by position (`3.8.2`). Each person keeps the same database record between imports, even when siblings are reordered or a name is corrected. The builder matches every family against the previous seed, by name or alias first and then by position, and keeps old spellings as search aliases.
+
+Decisions that should override the diagram, such as a confirmed living or late status, go in `OWNER_CONFIRMED` in `apps/api/scripts/build-seed.ts`. The build prints a warning if the named person is no longer at that position.
 
 ### Updating the live tree
 

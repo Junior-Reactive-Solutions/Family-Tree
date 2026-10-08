@@ -12,7 +12,7 @@
  *  - Notes: "Born 23 April 2024", "Twin", "Also known as X", anything else becomes a review note.
  *  - Children are ordered top to bottom, which is the confirmed birth order.
  * Each person's address (path) is their position: 3.8.2 = branch 3, 8th child, 2nd child.
- * Database ids derive from the path, so they stay stable when new people are added at the end.
+ * Database ids are kept stable by matching against the previous seed (see "keep identities stable").
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -30,7 +30,8 @@ export interface Seed {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../../..");
-const input = process.argv[2] ?? resolve(root, "data/source/family-tree.drawio.html");
+const positional = process.argv.slice(2).filter((a, i, all) => !a.startsWith("--") && all[i - 1] !== "--previous");
+const input = positional[0] ?? resolve(root, "data/source/family-tree.drawio.html");
 
 const TITLES = ["Dr.", "Eng.", "Prof.", "Counsel", "Rev.", "Sr."];
 
@@ -73,8 +74,14 @@ const FLAGGED: Record<string, string> = { "6.2.2": NOTE.agnes };
 // Genders the family stated explicitly (everyone else is inferred and queued for review).
 const STATED_GENDER: Record<string, "M" | "F"> = { "3.7": "F" };
 
+// Owner decisions that take precedence over the diagram. Matched by path and name, so a moved or
+// renamed entry is reported instead of silently overriding the wrong person.
+const OWNER_CONFIRMED: { path: string; name: string; isDeceased: boolean; note: string }[] = [
+  { path: "3.1", name: "Bea Nabukalu Twesigye", isDeceased: false, note: "Owner confirmed living on 2026-10-08 (v5 diagram marks her late)." },
+];
+
 const FEMALE = new Set(
-  `Martha Beatrice Bea Margarette Maria Maureen Mauda Immaculate Sharon Josephine Elizabeth Ivy Caroline Catherine Elsa Clare Christabell Gillian Grace Magdalena Merina Loma Charlotte Imelda Gloria Francesca Nicolette Mary Pauline Theresa Evelyn Alisha Arrielle Sanyu Abigail Christine Madrine Irene Sheila Doreen Lynette Lorita Hildagarde Patricia Joy Peace Zion Alexia Isabella Salome Veronica Semara Yemi Verity Florence Audriana Vincent Lucy Liza Lyn Laureen Rose Lenah Michelle Makyla Sylvia Gianna Aviella Amaris Every Suzan Rosa Joana Hannah Eugenia Anita Agnes Anna Jackline Anne Brenda Mercy Sonia Loida Felista Cecilia Edith Harriet Cynthis Teodozia Komuhangi Sylivia Ruth Debra Rhola Angelina Albertina Regina Wendy Michell Roshmin Nikita Patience Jacquerine Hanna Nora Hellen Kezerle Petrina Paroma Macrina Channel Thea Kiara Stella Phiona Theopista Speciosa Baby Kyomugisha Jolly Elisha Caaroline Kobusingye Kiconco Ikondere Nethan Maxine Kemitooma Linda Berna Aya Brielle Dorcas Karen Christabel`.split(/\s+/),
+  `Martha Beatrice Bea Margarette Maria Maureen Mauda Immaculate Sharon Josephine Elizabeth Ivy Caroline Catherine Elsa Clare Christabell Gillian Grace Magdalena Merina Loma Charlotte Imelda Gloria Francesca Nicolette Mary Pauline Theresa Evelyn Alisha Arrielle Sanyu Abigail Christine Madrine Irene Sheila Doreen Lynette Lorita Hildagarde Patricia Joy Peace Zion Alexia Isabella Salome Veronica Semara Yemi Verity Florence Audriana Vincent Lucy Liza Lyn Laureen Rose Lenah Michelle Makyla Sylvia Gianna Aviella Amaris Every Suzan Rosa Joana Hannah Eugenia Anita Agnes Anna Jackline Anne Brenda Mercy Sonia Loida Felista Cecilia Edith Harriet Cynthis Teodozia Komuhangi Sylivia Ruth Debra Rhola Angelina Albertina Regina Wendy Michell Roshmin Nikita Patience Jacquerine Hanna Nora Hellen Kezerle Petrina Paroma Macrina Channel Thea Kiara Stella Phiona Theopista Speciosa Baby Kyomugisha Jolly Elisha Caaroline Kobusingye Kiconco Ikondere Nethan Maxine Kemitooma Linda Berna Aya Brielle Dorcas Karen Christabel Lynn Lauren`.split(/\s+/),
 );
 const MALE = new Set(
   `John Ivan Israel Isaih Paul Godfrey Godwin Wilson Frank Edward Agaba Nigel Briel Robert Michael Joseph Francis Maxmillan Stefan Joshua Martin Gilbert Collins Jeremiah Archangel Mario Melvin Patrick Solomon Norbert Liam Julian Ryan Moses Emmanuel Shawn George Sam Xavier Gabriel Deus Hilary Conrad Mathew Mark Anthony Felix William Aedan Ben Jonathan Benjamin Kevin Micah Andrew Rogers Trevor Tarvis Josiah Henry Larry Josheb Silasi Cedrick Deogratius Deogratus Petero Ronald Innocent Christian Banyenzaki Antiel Yakobo Steven Denis Justus Priton David Bosco Deo Gerald Roderick Allan Brian Brandon Raymond Albert Trevaar Jason Herbert Nolan Jordan Omukama Swithin Timothy Aaron Alexander Eugene Aeden Karl Bonny Jeffrey Jeffery Roy Warren Jonah Vittorio Vincenzo Kigambo Thomas Calvin`.split(/\s+/),
@@ -295,6 +302,7 @@ const rootSpouse = addPerson(parseName(rootLabel.spouses[0] ?? ""), null, { bloo
 familyUnion.set("0", addUnion(rootPerson, rootSpouse, 1));
 
 const birthDates = new Map<string, string>();
+const appliedOverrides = new Set<string>();
 function walk(box: Cell, parentPath: string) {
   const children = (kids.get(box.id) ?? []).sort((a, b) => a.y - b.y || a.x - b.x);
   let twinRun: SeedPerson[] = [];
@@ -309,6 +317,16 @@ function walk(box: Cell, parentPath: string) {
     const path = parentPath === "0" ? String(i + 1) : `${parentPath}.${i + 1}`;
     const label = parseLabel(child.value);
     const person = addPerson(label.subject, path, { blood: true, order: i + 1, idSeed: `path:${path}`, gender: STATED_GENDER[path] });
+    const confirmed = OWNER_CONFIRMED.find((c) => c.path === path);
+    if (confirmed) {
+      if (confirmed.name === person.fullName) {
+        if (person.isDeceased !== confirmed.isDeceased) console.log(`owner override at ${path}: ${confirmed.note}`);
+        person.isDeceased = confirmed.isDeceased;
+        appliedOverrides.add(path);
+      } else {
+        console.warn(`WARNING owner override for ${path} expects "${confirmed.name}" but the diagram has "${person.fullName}"; not applied`);
+      }
+    }
     person.aliases.push(...label.aliases);
     for (const n of label.notes) addNote(person, n);
     if (label.birthDate) {
@@ -338,6 +356,107 @@ for (const x of persons) {
 for (const [p, note] of Object.entries(FLAGGED)) {
   const person = byPath.get(p);
   if (person) addNote(person, note);
+}
+
+// ---------- keep identities stable ----------
+// Ids derive from positions, so reordering siblings would hand one person's record to another.
+// Match against the previous seed instead: within each family, by name or alias first, then by position
+// (a rename in place). Spouses keep their record per partner and marriage number. Genuinely new people get new ids.
+const previousFile = argValue("--previous") ?? resolve(root, "data/family.seed.json");
+let previous: Seed | null = null;
+try {
+  previous = JSON.parse(readFileSync(previousFile, "utf8")) as Seed;
+} catch {
+  /* first build: nothing to match against */
+}
+const renamed: string[] = [];
+if (previous) {
+  const prevById = new Map(previous.persons.map((p) => [p.id, p]));
+  const childrenOf = (s: Seed, id: string) => {
+    const unionIds = new Set(s.unions.filter((u) => u.partnerA === id).map((u) => u.id));
+    return s.parentage
+      .filter((x) => (x.unionId && unionIds.has(x.unionId)) || x.parentId === id)
+      .map((x) => s.persons.find((p) => p.id === x.childId)!)
+      .sort((a, b) => (a.birthOrder ?? 0) - (b.birthOrder ?? 0));
+  };
+  const norm = (s: string) => s.normalize("NFKD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
+  const names = (p: SeedPerson) => new Set([p.fullName, ...p.aliases].map(norm));
+  const current: Seed = { persons, unions, parentage };
+  const finalId = new Map<string, string>(); // build id -> kept id
+
+  const matchFamily = (newId: string, oldId: string | null) => {
+    const kept = finalId.get(newId)!;
+    const newKids = childrenOf(current, newId);
+    const oldKids = oldId ? childrenOf(previous!, oldId) : [];
+    const pairs = new Map<string, SeedPerson>();
+    const used = new Set<string>();
+    for (const k of newKids) {
+      const kn = names(k);
+      const hit = oldKids.find((o) => !used.has(o.id) && [...names(o)].some((n) => kn.has(n)));
+      if (hit) {
+        pairs.set(k.id, hit);
+        used.add(hit.id);
+      }
+    }
+    newKids.forEach((k) => {
+      if (pairs.has(k.id)) return;
+      const samePlace = oldKids.find((o) => !used.has(o.id) && o.birthOrder === k.birthOrder);
+      if (samePlace) {
+        pairs.set(k.id, samePlace);
+        used.add(samePlace.id);
+      }
+    });
+    for (const k of newKids) {
+      const o = pairs.get(k.id);
+      finalId.set(k.id, o ? o.id : uuid(`person:${kept}:${norm(k.fullName)}`));
+      if (o && norm(o.fullName) !== norm(k.fullName)) {
+        k.aliases.push(o.fullName);
+        renamed.push(`${o.fullName} -> ${k.fullName}`);
+      }
+      matchFamily(k.id, o?.id ?? null);
+    }
+    // Spouses: same partner, same marriage number keeps the record (covers spelling fixes).
+    for (const u of current.unions.filter((x) => x.partnerA === newId)) {
+      if (!u.partnerB) continue;
+      const oldU = oldId ? previous!.unions.find((x) => x.partnerA === oldId && x.sequence === u.sequence) : undefined;
+      const oldSpouse = oldU?.partnerB ? prevById.get(oldU.partnerB) : undefined;
+      finalId.set(u.partnerB, oldSpouse ? oldSpouse.id : uuid(`spouse:${kept}:${u.sequence}`));
+      const sp = persons.find((p) => p.id === u.partnerB)!;
+      if (oldSpouse && norm(oldSpouse.fullName) !== norm(sp.fullName)) {
+        sp.aliases.push(oldSpouse.fullName);
+        renamed.push(`${oldSpouse.fullName} -> ${sp.fullName} (spouse)`);
+      }
+    }
+  };
+  const rootNew = persons.find((p) => p.path === "0")!;
+  const rootOld = previous.persons.find((p) => p.path === "0");
+  finalId.set(rootNew.id, rootOld?.id ?? rootNew.id);
+  matchFamily(rootNew.id, rootOld?.id ?? null);
+  for (const p of persons) if (!finalId.has(p.id)) finalId.set(p.id, p.id); // e.g. the root's spouse
+
+  const remap = (id: string) => finalId.get(id) ?? id;
+  for (const p of persons) {
+    p.id = remap(p.id);
+    p.aliases = [...new Set(p.aliases)].filter((a) => a !== p.fullName);
+  }
+  const unionIds = new Map<string, string>();
+  for (const u of unions) {
+    const before = u.id;
+    u.partnerA = remap(u.partnerA);
+    u.partnerB = u.partnerB ? remap(u.partnerB) : null;
+    u.id = uuid(`union:${u.partnerA}:${u.sequence}`);
+    unionIds.set(before, u.id);
+  }
+  for (const x of parentage) {
+    x.childId = remap(x.childId);
+    x.parentId = x.parentId ? remap(x.parentId) : null;
+    x.unionId = x.unionId ? unionIds.get(x.unionId)! : null;
+  }
+}
+
+function argValue(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : undefined;
 }
 
 const seed: Seed = { persons, unions, parentage };
