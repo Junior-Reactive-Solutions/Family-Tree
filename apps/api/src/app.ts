@@ -55,6 +55,14 @@ app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 100, standardHeaders: true, legacyHeaders: false }));
 
+if (process.env.DEBUG_IP === "1") {
+  // Temporary: shows which client-address headers reach the API.
+  app.get("/api/debug/ip", (req, res) => {
+    const pick = (h: string) => req.get(h) ?? null;
+    res.json({ ip: req.ip, socket: req.socket.remoteAddress, xff: pick("x-forwarded-for"), xRealIp: pick("x-real-ip"), xVercelFF: pick("x-vercel-forwarded-for"), trueClientIp: pick("true-client-ip"), cfConnectingIp: pick("cf-connecting-ip") });
+  });
+}
+
 app.get("/api/health", (_req, res) => res.json({ ok: true, db: !!db }));
 app.use("/api/access", accessRouter());
 app.get("/api/tree", requireAccess, async (_req, res) => {
