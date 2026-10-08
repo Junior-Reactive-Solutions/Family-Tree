@@ -55,6 +55,11 @@ app.use(compression());
 app.use(cors({ origin: origins, credentials: true }));
 app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
+// Family data is private: no shared cache (Vercel edge, proxies) may store any API response.
+app.use("/api", (_req, res, next) => {
+  res.set({ "Cache-Control": "private, no-store", "CDN-Cache-Control": "no-store", "Vercel-CDN-Cache-Control": "no-store", Vary: "Cookie" });
+  next();
+});
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 100, standardHeaders: true, legacyHeaders: false }));
 
 if (process.env.DEBUG_IP === "1") {
@@ -69,7 +74,6 @@ app.get("/api/health", (_req, res) => res.json({ ok: true, db: !!db }));
 app.use("/api/access", accessRouter());
 app.get("/api/tree", requireAccess, async (_req, res) => {
   try {
-    res.set("Cache-Control", "public, max-age=300");
     res.json(await getTree());
   } catch (e) {
     console.error(e);

@@ -206,6 +206,16 @@ describe("general hardening", () => {
     expect(r.headers.get("x-content-type-options")).toBe("nosniff");
     expect(r.headers.get("x-powered-by")).toBeNull();
   });
+  it("never lets a shared cache store family data", async () => {
+    // Regression: a public Cache-Control let Vercel's edge serve the tree to visitors without the code.
+    for (const path of ["/api/tree", "/api/health", "/api/access"]) {
+      const r = await call(path, undefined, { cookie });
+      const cc = r.headers.get("cache-control") ?? "";
+      expect(cc).toMatch(/no-store/);
+      expect(cc).not.toMatch(/public|s-maxage/);
+      expect(r.headers.get("vercel-cdn-cache-control")).toBe("no-store");
+    }
+  });
   it("answers unknown routes with plain JSON", async () => {
     const r = await call("/api/../../etc/passwd");
     expect(r.status).toBe(404);
