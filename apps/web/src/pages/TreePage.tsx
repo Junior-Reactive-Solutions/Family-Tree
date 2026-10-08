@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { createChart } from "family-chart";
 import { select } from "d3";
-import { Maximize, Users, UsersRound, ZoomIn, ZoomOut } from "lucide-react";
+import { Heart, HeartOff, Maximize, Users, UsersRound, ZoomIn, ZoomOut } from "lucide-react";
 import "family-chart/styles/family-chart.css";
 import { useFamily } from "../lib/context";
 import { displayName, initials } from "../lib/data";
@@ -16,15 +16,25 @@ export default function TreePage() {
   const host = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
   const [whole, setWhole] = useState(false);
+  const [spouses, setSpouses] = useState(true);
+  const [depth, setDepth] = useState(2);
   const focus = params.get("focus") ?? "1";
   const focusId = (family.byPath.get(focus) ?? family.byPath.get("1")!).id;
+
+  const chartData = useMemo(() => {
+    if (spouses) return family.chart;
+    const keep = new Set(family.tree.persons.filter((p) => p.isBloodMember).map((p) => p.id));
+    return family.chart
+      .filter((d) => keep.has(d.id))
+      .map((d) => ({ ...d, rels: { parents: d.rels.parents.filter((x) => keep.has(x)), spouses: [], children: d.rels.children.filter((x) => keep.has(x)) } }));
+  }, [family, spouses]);
 
   useEffect(() => {
     if (!host.current) return;
     host.current.innerHTML = "";
-    const chart = createChart(host.current, family.chart);
+    const chart = createChart(host.current, chartData);
     chart.setTransitionTime(250).setCardXSpacing(230).setCardYSpacing(140);
-    chart.setAncestryDepth(whole ? 6 : 2).setProgenyDepth(whole ? 6 : 2).setShowSiblingsOfMain(false);
+    chart.setAncestryDepth(whole ? 6 : depth).setProgenyDepth(whole ? 6 : depth).setShowSiblingsOfMain(false);
     const card = chart.setCardHtml();
     card.setCardDim({ w: 200, h: 70, text_x: 70, text_y: 12, img_w: 0, img_h: 0, img_x: 0, img_y: 0 });
     card.setCardInnerHtmlCreator((d) => {
@@ -54,7 +64,7 @@ export default function TreePage() {
       if (host.current) host.current.innerHTML = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family, whole]);
+  }, [family, whole, spouses, depth, chartData]);
 
   useEffect(() => {
     const c = chartRef.current;
@@ -79,6 +89,16 @@ export default function TreePage() {
         <button className="icon-btn" aria-pressed={whole} aria-label={whole ? "Show focused branch only" : "Show whole family"} title={whole ? "Focused view" : "Whole family"} onClick={() => setWhole((w) => !w)}>
           {whole ? <Users size={20} strokeWidth={1.75} /> : <UsersRound size={20} strokeWidth={1.75} />}
         </button>
+        <button className="icon-btn" aria-pressed={spouses} aria-label={spouses ? "Hide spouses" : "Show spouses"} title={spouses ? "Hide spouses" : "Show spouses"} onClick={() => setSpouses((x) => !x)}>
+          {spouses ? <Heart size={20} strokeWidth={1.75} /> : <HeartOff size={20} strokeWidth={1.75} />}
+        </button>
+        <select aria-label="Generations shown" value={depth} disabled={whole} onChange={(e) => setDepth(Number(e.target.value))}>
+          {[1, 2, 3, 4].map((n) => <option key={n} value={n}>{n} generation{n > 1 ? "s" : ""}</option>)}
+        </select>
+        <select aria-label="Jump to branch" value="" onChange={(e) => e.target.value && setParams({ focus: e.target.value })}>
+          <option value="">Branch</option>
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => <option key={n} value={String(n)}>Branch {n}: {family.byPath.get(String(n))?.fullName.split(" ")[0]}</option>)}
+        </select>
       </div>
       <div className="f3" ref={host} aria-label="Interactive family tree. Use the Branches page for a text list." />
     </section>
