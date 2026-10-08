@@ -105,10 +105,15 @@ const unescapeXml = (s: string) =>
   s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'").replace(/&#xa;/gi, "\n").replace(/&amp;/g, "&");
 
 function htmlToText(s: string) {
-  return unescapeXml(unescapeXml(s))
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(div|p)>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
+  let text = unescapeXml(unescapeXml(s)).replace(/<br\s*\/?>/gi, "\n").replace(/<\/(div|p)>/gi, "\n");
+  // Strip tags until none remain (nested fragments like "<scr<b>ipt" can re-form a tag), then drop stray brackets.
+  let previous: string;
+  do {
+    previous = text;
+    text = text.replace(/<[^<>]*>/g, "");
+  } while (text !== previous);
+  return text
+    .replace(/[<>]/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/[ \t]+/g, " ")
     .replace(/\n\s*\n+/g, "\n")
