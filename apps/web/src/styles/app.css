@@ -108,3 +108,16 @@ button, input { font: inherit; color: inherit; }
 .chat input, .chat textarea { width: 100%; padding: .6rem .75rem; border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-dominant); min-height: 44px; }
 .chat .hp { position: absolute; left: -9999px; height: 0; overflow: hidden; }
 .chat-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+
+.narrow { max-width: 420px; }
+.form { display: grid; gap: 1rem; }
+.form label { display: grid; gap: .3rem; font-weight: 500; }
+.form input, .admin-list select { min-height: 44px; padding: .5rem .75rem; border-radius: var(--radius); border: 1px solid var(--color-border); background: var(--color-dominant); }
+.admin-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.tabs { display: flex; gap: .5rem; margin: 1rem 0; flex-wrap: wrap; }
+.tabs button { min-height: 44px; padding: 0 1rem; border: 1px solid var(--color-border); border-radius: var(--radius); background: transparent; cursor: pointer; }
+.tabs button[aria-selected="true"] { background: var(--color-secondary); color: var(--color-text-on-secondary); border-color: var(--color-secondary); }
+.admin-list { list-style: none; padding: 0; display: grid; gap: .75rem; }
+.admin-list li { border: 1px solid var(--color-border); border-radius: var(--radius); padding: .9rem 1rem; }
+.admin-list p { margin: .35rem 0; }
+.chip.on { background: var(--color-secondary); color: var(--color-text-on-secondary); }

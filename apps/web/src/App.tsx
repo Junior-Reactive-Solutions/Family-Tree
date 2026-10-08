@@ -10,6 +10,7 @@ import Home from "./pages/Home";
 import Branches from "./pages/Branches";
 
 const TreePage = lazy(() => import("./pages/TreePage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
 
 export default function App() {
   const [family, setFamily] = useState<Family | null>(null);
@@ -78,6 +79,7 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/branches" element={<Branches />} />
                 <Route path="/tree" element={<TreePage />} />
+                <Route path="/admin" element={<AdminPage />} />
                 <Route path="*" element={<Home />} />
               </Routes>
             </Suspense>

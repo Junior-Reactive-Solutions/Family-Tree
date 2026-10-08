@@ -47,7 +47,7 @@ const app = express();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 app.use(helmet());
-app.use(cors({ origin: origins }));
+app.use(cors({ origin: origins, credentials: true }));
 app.use(express.json({ limit: "10kb" }));
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 100, standardHeaders: true, legacyHeaders: false }));
 
