@@ -5,7 +5,7 @@
       "destination": "https://family-tree-api-1zfh.onrender.com/api/:path*"
     },
     {
-      "source": "/((?!assets/|robots.txt|tree.snapshot.json).*)",
+      "source": "/((?!assets/|robots.txt|favicon|icon-|apple-touch|site.webmanifest|tree.snapshot.json).*)",
       "destination": "/index.html"
     }
   ],
