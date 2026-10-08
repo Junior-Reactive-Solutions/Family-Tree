@@ -11,11 +11,30 @@ export interface Family {
   chart: Datum[];
 }
 
+const API = import.meta.env.VITE_API_URL as string | undefined;
+
+async function fetchJson(url: string, ms: number): Promise<unknown> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error(String(res.status));
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** API first (Render may be waking from idle), build-time snapshot as fallback. */
 export async function loadFamily(): Promise<Family> {
-  const res = await fetch("/tree.snapshot.json");
-  if (!res.ok) throw new Error("Could not load family data");
-  const tree = TreeSchema.parse(await res.json());
-  return buildFamily(tree);
+  if (API) {
+    try {
+      return buildFamily(TreeSchema.parse(await fetchJson(`${API}/api/tree`, 5000)));
+    } catch {
+      /* fall through to snapshot */
+    }
+  }
+  return buildFamily(TreeSchema.parse(await fetchJson("/tree.snapshot.json", 10000)));
 }
 
 const push = <K, V>(m: Map<K, V[]>, k: K, v: V) => {
