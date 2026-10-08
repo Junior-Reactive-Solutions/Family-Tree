@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { Link, NavLink, Route, Routes, useSearchParams } from "react-router";
+import { Link, NavLink, Route, Routes, useLocation, useSearchParams } from "react-router";
 import { ArrowUpRight, GitBranch, House, ListTree, MessageSquarePlus, Moon, Sun } from "lucide-react";
 import { FamilyContext } from "./lib/context";
 import { AccessRequired, loadFamily, type Family } from "./lib/data";
@@ -14,6 +14,7 @@ import NotFound from "./pages/NotFound";
 const TreePage = lazy(() => import("./pages/TreePage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
 const Chatbot = lazy(() => import("./components/Chatbot"));
+const Privacy = lazy(() => import("./pages/Privacy"));
 
 export default function App() {
   const [family, setFamily] = useState<Family | null>(null);
@@ -29,6 +30,8 @@ export default function App() {
   });
   const [params, setParams] = useSearchParams();
   const headerRef = useRef<HTMLElement>(null);
+  // The privacy notice is readable without the access code.
+  const publicPage = useLocation().pathname === "/privacy";
   const [chatOpen, setChatOpen] = useState(false);
   const [chatPath, setChatPath] = useState<string | null>(null);
 
@@ -95,15 +98,20 @@ export default function App() {
         </button>
       </header>
       <main id="main">
-        {error && (
+        {publicPage && (
+          <Suspense fallback={null}>
+            <Privacy />
+          </Suspense>
+        )}
+        {!publicPage && error && (
           <div className="loading" role="alert">
             <p>The family data could not be loaded.</p>
             <button className="btn" onClick={load}>Try again</button>
           </div>
         )}
-        {locked && <AccessGate onUnlocked={load} />}
-        {!family && !error && !locked && <Loading slow={slow} />}
-        {family && (
+        {!publicPage && locked && <AccessGate onUnlocked={load} />}
+        {!publicPage && !family && !error && !locked && <Loading slow={slow} />}
+        {!publicPage && family && (
           <FamilyContext.Provider value={{ family, openPerson, openChat: (p) => { setChatPath(p); setChatOpen(true); } }}>
             <Suspense fallback={<Loading />}>
               <Routes>
@@ -130,7 +138,8 @@ export default function App() {
         <div className="footer-inner">
           <p className="footer-family">
             <img src="/favicon.svg" alt="" width={20} height={20} />
-            Bintukwanga Family Tree · A private family record
+            Bintukwanga Family Tree · A private family record ·{" "}
+            <Link to="/privacy">Privacy</Link>
           </p>
           <p className="footer-credit">
             Designed and built by{" "}
