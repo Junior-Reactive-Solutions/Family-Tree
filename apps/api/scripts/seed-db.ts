@@ -42,6 +42,11 @@ if (dryRun) {
   process.exit(0);
 }
 
+// Addresses are unique, so free the ones that move (siblings reordered) before writing new ones.
+const existingPaths = await db.select({ id: persons.id, path: persons.path }).from(persons);
+const moving = existingPaths.filter((e) => e.path && seed.persons.find((p) => p.id === e.id)?.path !== e.path).map((e) => e.id);
+if (moving.length) await db.update(persons).set({ path: null }).where(inArray(persons.id, moving));
+
 for (const c of chunks(seed.persons)) {
   await db
     .insert(persons)
