@@ -80,17 +80,29 @@ export default function Chatbot({
     };
     const parsed = SuggestionInputSchema.safeParse(payload);
     if (!parsed.success) {
-      setHint("Please check the message length (5 to 1000 characters) and your details.");
-      setStep("message");
+      const field = parsed.error.issues[0]?.path[0];
+      if (field === "submitterContact") {
+        setHint("Please enter a valid email address or phone number, or leave it blank.");
+        setStep("contact");
+      } else if (field === "submitterName") {
+        setHint("Please keep your name under 80 characters.");
+        setStep("contact");
+      } else {
+        setHint("Please write between 5 and 1000 characters.");
+        setStep("message");
+      }
       return;
     }
     setBusy(true);
     try {
       const res = await fetch(`${API}/api/suggestions`, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(parsed.data),
       });
+      if (res.status === 401) setHint("Your family access has expired. Please reload the page and enter the code again.");
+      if (res.status === 429) setHint("You have sent several suggestions already. Please try again in 15 minutes.");
       setStep(res.ok ? "done" : "error");
     } catch {
       setStep("error");
@@ -192,12 +204,13 @@ export default function Chatbot({
           <>
             <p className="bubble">Your name and contact are optional. They let us follow up.</p>
             <input value={name} maxLength={80} aria-label="Your name" placeholder="Your name" onChange={(e) => setName(e.target.value)} />
-            <input value={contact} maxLength={120} aria-label="Email or phone" placeholder="Email or phone" onChange={(e) => setContact(e.target.value)} />
+            <input value={contact} maxLength={120} aria-label="Email or phone" placeholder="Email or phone" inputMode="email" autoComplete="email" onChange={(e) => setContact(e.target.value)} />
+            {hint && <p className="bubble">{hint}</p>}
             <div className="hp" aria-hidden="true">
               <input tabIndex={-1} autoComplete="off" value={hp} onChange={(e) => setHp(e.target.value)} name="website" />
             </div>
             <div className="chat-row">
-              <button className="btn" onClick={() => setStep("review")}>Review</button>
+              <button className="btn" onClick={() => { setHint(""); setStep("review"); }}>Review</button>
             </div>
           </>
         )}
@@ -225,7 +238,7 @@ export default function Chatbot({
         )}
         {step === "error" && (
           <>
-            <p className="bubble">That did not go through. Please try again in a few minutes.</p>
+            <p className="bubble">{hint || "That did not go through. Please try again in a few minutes."}</p>
             <button className="btn ghost" onClick={() => setStep("review")}>Back</button>
           </>
         )}

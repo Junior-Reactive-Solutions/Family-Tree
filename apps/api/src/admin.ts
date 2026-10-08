@@ -3,8 +3,9 @@ import { verify } from "@node-rs/argon2";
 import cookieParser from "cookie-parser";
 import { desc, eq } from "drizzle-orm";
 import express, { type NextFunction, type Request, type Response } from "express";
-import rateLimit from "express-rate-limit";
+import { limiters } from "./limits.js";
 import { z } from "zod";
+import { cleanLine as clean, cleanText } from "@family-tree/shared";
 import type { drizzle } from "drizzle-orm/neon-http";
 import { admins, persons, suggestions } from "./db/schema.js";
 
@@ -18,23 +19,23 @@ if (prod && !process.env.SESSION_SECRET) throw new Error("SESSION_SECRET is requ
 const sign = (payload: string) => createHmac("sha256", secret).update(payload).digest("base64url");
 const safeEq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
-function issueSession(adminId: string) {
+// Sessions are bound to the current password hash: changing the password or deleting the admin ends them.
+const fingerprint = (passwordHash: string) => createHmac("sha256", secret).update(`pw:${passwordHash}`).digest("base64url");
+
+function issueSession(adminId: string, passwordHash: string) {
   const csrf = randomBytes(16).toString("base64url");
   const body = `${adminId}.${Date.now() + SESSION_TTL_MS}.${csrf}`;
-  return { token: `${body}.${sign(body)}`, csrf };
+  return { token: `${body}.${sign(`${body}:${fingerprint(passwordHash)}`)}`, csrf };
 }
 
-function readSession(token: string | undefined): { adminId: string; csrf: string } | null {
-  if (!token) return null;
-  const parts = token.split(".");
+function parseSession(token: string | undefined) {
+  const parts = (token ?? "").split(".");
   if (parts.length !== 4) return null;
   const [adminId, exp, csrf, sig] = parts as [string, string, string, string];
-  if (!safeEq(sig, sign(`${adminId}.${exp}.${csrf}`))) return null;
-  if (Number(exp) < Date.now()) return null;
-  return { adminId, csrf };
+  if (!/^[0-9a-f-]{36}$/.test(adminId) || !(Number(exp) > Date.now())) return null;
+  return { adminId, exp, csrf, sig };
 }
 
-const clean = (s: string) => s.normalize("NFKC").replace(/[\u0000-\u001f\u007f]/g, " ").trim();
 const LoginSchema = z.object({ email: z.string().max(254).email(), password: z.string().min(1).max(200) });
 const StatusSchema = z.object({ status: z.enum(["new", "reviewed", "applied", "rejected"]) });
 const PersonPatchSchema = z
@@ -44,7 +45,7 @@ const PersonPatchSchema = z
     aliases: z.array(z.string().transform(clean).pipe(z.string().min(1).max(120))).max(20),
     isDeceased: z.boolean(),
     gender: z.enum(["M", "F", "U"]),
-    bio: z.string().transform(clean).pipe(z.string().max(2000)).nullable(),
+    bio: z.string().max(8000).transform(cleanText).pipe(z.string().max(2000)).nullable(),
     needsReview: z.boolean(),
     reviewNote: z.string().transform(clean).pipe(z.string().max(500)).nullable(),
   })
@@ -61,16 +62,16 @@ export function adminRouter(db: Db | null) {
     next();
   });
 
-  const loginLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 5, standardHeaders: true, legacyHeaders: false });
+  const loginLimiter = limiters(5, 50);
 
-  r.post("/login", loginLimiter, async (req, res) => {
+  r.post("/login", ...loginLimiter, async (req, res) => {
     const parsed = LoginSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "Invalid credentials" });
     const [row] = await db!.select().from(admins).where(eq(admins.email, parsed.data.email.toLowerCase())).limit(1);
     // Verify against a dummy hash when the account is missing to keep timing similar.
     const ok = row ? await verify(row.passwordHash, parsed.data.password).catch(() => false) : false;
     if (!row || !ok) return res.status(401).json({ error: "Invalid credentials" });
-    const { token, csrf } = issueSession(row.id);
+    const { token, csrf } = issueSession(row.id, row.passwordHash);
     res.cookie("session", token, {
       httpOnly: true,
       secure: prod,
@@ -81,9 +82,23 @@ export function adminRouter(db: Db | null) {
     res.json({ ok: true, csrf });
   });
 
-  const requireAdmin = (req: Request, res: Response, next: NextFunction) => {
-    const s = readSession(req.cookies?.session);
-    if (!s) return res.status(401).json({ error: "Not signed in" });
+  const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+    const p = parseSession(req.cookies?.session);
+    if (!p) return res.status(401).json({ error: "Not signed in" });
+    let row: { passwordHash: string } | undefined;
+    try {
+      [row] = await db!
+        .select({ passwordHash: admins.passwordHash })
+        .from(admins)
+        .where(eq(admins.id, p.adminId))
+        .limit(1);
+    } catch (e) {
+      console.error(e);
+      return res.status(503).json({ error: "Please try again shortly" });
+    }
+    const expected = row ? sign(`${p.adminId}.${p.exp}.${p.csrf}:${fingerprint(row.passwordHash)}`) : "";
+    if (!row || !safeEq(p.sig, expected)) return res.status(401).json({ error: "Not signed in" });
+    const s = { adminId: p.adminId, csrf: p.csrf };
     if (req.method !== "GET") {
       const sent = req.get("x-csrf-token") ?? "";
       if (!safeEq(sent, s.csrf)) return res.status(403).json({ error: "Forbidden" });

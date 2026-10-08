@@ -299,3 +299,4 @@ main:has(.tree-wrap) + .site-footer { display: none; }
 .sw-late { background: #46524c; }
 :root[data-theme="dark"] .tree-card.spouse.late { background: #2a3530; color: var(--color-text); }
 .badge { width: fit-content; justify-self: start; }
+.admin-list p, .bubble { white-space: pre-wrap; overflow-wrap: anywhere; }
