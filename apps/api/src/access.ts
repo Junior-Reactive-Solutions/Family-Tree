@@ -47,7 +47,7 @@ export function accessRouter() {
     res.set("Cache-Control", "no-store");
     next();
   });
-  const limiter = limiters(8, 100);
+  const limiter = limiters(8, 40, { failuresOnly: true });
 
   r.get("/", (req, res) => res.json({ ok: hasAccess(req), required: gateEnabled }));
   r.post("/", ...limiter, (req, res) => {

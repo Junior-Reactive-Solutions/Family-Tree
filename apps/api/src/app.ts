@@ -12,7 +12,7 @@ import { SuggestionInputSchema, TreeSchema, type Tree } from "@family-tree/share
 import cookieParser from "cookie-parser";
 import { accessRouter, requireAccess } from "./access.js";
 import { adminRouter } from "./admin.js";
-import { limiters } from "./limits.js";
+import { limiters, visitorKey } from "./limits.js";
 import { parentage, persons, suggestions, unions } from "./db/schema.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -55,14 +55,6 @@ app.use(express.json({ limit: "10kb" }));
 app.use(cookieParser());
 app.use("/api", rateLimit({ windowMs: 60_000, limit: 100, standardHeaders: true, legacyHeaders: false }));
 
-if (process.env.DEBUG_IP === "1") {
-  // Temporary: shows which client-address headers reach the API.
-  app.get("/api/debug/ip", (req, res) => {
-    const pick = (h: string) => req.get(h) ?? null;
-    res.json({ ip: req.ip, socket: req.socket.remoteAddress, xff: pick("x-forwarded-for"), xRealIp: pick("x-real-ip"), xVercelFF: pick("x-vercel-forwarded-for"), trueClientIp: pick("true-client-ip"), cfConnectingIp: pick("cf-connecting-ip") });
-  });
-}
-
 app.get("/api/health", (_req, res) => res.json({ ok: true, db: !!db }));
 app.use("/api/access", accessRouter());
 app.get("/api/tree", requireAccess, async (_req, res) => {
@@ -90,7 +82,7 @@ app.post("/api/suggestions", requireAccess, ...suggestionLimiter, async (req, re
         message: d.message,
         submitterName: d.submitterName || null,
         submitterContact: d.submitterContact || null,
-        ipHash: createHash("sha256").update(ipSalt + (req.ip ?? "")).digest("hex"),
+        ipHash: createHash("sha256").update(ipSalt + visitorKey(req)).digest("hex"),
       });
     }
     return res.status(202).json({ ok: true });

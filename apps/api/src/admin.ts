@@ -62,7 +62,7 @@ export function adminRouter(db: Db | null) {
     next();
   });
 
-  const loginLimiter = limiters(5, 50);
+  const loginLimiter = limiters(5, 20, { failuresOnly: true });
 
   r.post("/login", ...loginLimiter, async (req, res) => {
     const parsed = LoginSchema.safeParse(req.body);
