@@ -80,8 +80,16 @@ const OWNER_CONFIRMED: { path: string; name: string; isDeceased: boolean; note: 
   { path: "3.1", name: "Bea Nabukalu Twesigye", isDeceased: false, note: "Owner confirmed living on 2026-10-08 (v5 diagram marks her late)." },
 ];
 
+// Name corrections the owner sent outside the diagram (2026-10-08). Each applies only if the diagram still
+// shows the expected name, so once the diagram itself is corrected these become no-ops and can be removed.
+const OWNER_CORRECTIONS: { path: string; expect: string; fullName?: string; spouse?: { sequence: number; expect: string; fullName: string } }[] = [
+  { path: "3.7.1", expect: "Lucy Marie Muhairwe", fullName: "Lucie Marie Muhairwe", spouse: { sequence: 1, expect: "Aidan", fullName: "Aidan Metcalfe" } },
+  { path: "3.5.1", expect: "Isabella Rutayungwa", spouse: { sequence: 1, expect: "Felix", fullName: "Felix Keller" } },
+  { path: "3.1.1", expect: "Joy Twesigye", spouse: { sequence: 1, expect: "Aedan", fullName: "Shawn Smyth" } },
+];
+
 const FEMALE = new Set(
-  `Martha Beatrice Bea Margarette Maria Maureen Mauda Immaculate Sharon Josephine Elizabeth Ivy Caroline Catherine Elsa Clare Christabell Gillian Grace Magdalena Merina Loma Charlotte Imelda Gloria Francesca Nicolette Mary Pauline Theresa Evelyn Alisha Arrielle Sanyu Abigail Christine Madrine Irene Sheila Doreen Lynette Lorita Hildagarde Patricia Joy Peace Zion Alexia Isabella Salome Veronica Semara Yemi Verity Florence Audriana Vincent Lucy Liza Lyn Laureen Rose Lenah Michelle Makyla Sylvia Gianna Aviella Amaris Every Suzan Rosa Joana Hannah Eugenia Anita Agnes Anna Jackline Anne Brenda Mercy Sonia Loida Felista Cecilia Edith Harriet Cynthis Teodozia Komuhangi Sylivia Ruth Debra Rhola Angelina Albertina Regina Wendy Michell Roshmin Nikita Patience Jacquerine Hanna Nora Hellen Kezerle Petrina Paroma Macrina Channel Thea Kiara Stella Phiona Theopista Speciosa Baby Kyomugisha Jolly Elisha Caaroline Kobusingye Kiconco Ikondere Nethan Maxine Kemitooma Linda Berna Aya Brielle Dorcas Karen Christabel Lynn Lauren`.split(/\s+/),
+  `Martha Beatrice Bea Margarette Maria Maureen Mauda Immaculate Sharon Josephine Elizabeth Ivy Caroline Catherine Elsa Clare Christabell Gillian Grace Magdalena Merina Loma Charlotte Imelda Gloria Francesca Nicolette Mary Pauline Theresa Evelyn Alisha Arrielle Sanyu Abigail Christine Madrine Irene Sheila Doreen Lynette Lorita Hildagarde Patricia Joy Peace Zion Alexia Isabella Salome Veronica Semara Yemi Verity Florence Audriana Vincent Lucy Liza Lyn Laureen Rose Lenah Michelle Makyla Sylvia Gianna Aviella Amaris Every Suzan Rosa Joana Hannah Eugenia Anita Agnes Anna Jackline Anne Brenda Mercy Sonia Loida Felista Cecilia Edith Harriet Cynthis Teodozia Komuhangi Sylivia Ruth Debra Rhola Angelina Albertina Regina Wendy Michell Roshmin Nikita Patience Jacquerine Hanna Nora Hellen Kezerle Petrina Paroma Macrina Channel Thea Kiara Stella Phiona Theopista Speciosa Baby Kyomugisha Jolly Elisha Caaroline Kobusingye Kiconco Ikondere Nethan Maxine Kemitooma Linda Berna Aya Brielle Dorcas Karen Christabel Lynn Lauren Lucie`.split(/\s+/),
 );
 const MALE = new Set(
   `John Ivan Israel Isaih Paul Godfrey Godwin Wilson Frank Edward Agaba Nigel Briel Robert Michael Joseph Francis Maxmillan Stefan Joshua Martin Gilbert Collins Jeremiah Archangel Mario Melvin Patrick Solomon Norbert Liam Julian Ryan Moses Emmanuel Shawn George Sam Xavier Gabriel Deus Hilary Conrad Mathew Mark Anthony Felix William Aedan Ben Jonathan Benjamin Kevin Micah Andrew Rogers Trevor Tarvis Josiah Henry Larry Josheb Silasi Cedrick Deogratius Deogratus Petero Ronald Innocent Christian Banyenzaki Antiel Yakobo Steven Denis Justus Priton David Bosco Deo Gerald Roderick Allan Brian Brandon Raymond Albert Trevaar Jason Herbert Nolan Jordan Omukama Swithin Timothy Aaron Alexander Eugene Aeden Karl Bonny Jeffrey Jeffery Roy Warren Jonah Vittorio Vincenzo Kigambo Thomas Calvin`.split(/\s+/),
@@ -343,6 +351,35 @@ function walk(box: Cell, parentPath: string) {
   closeTwins();
 }
 walk(roots[0]!, "0");
+
+const rename = (p: SeedPerson, to: string) => {
+  p.aliases.push(p.fullName);
+  p.fullName = to;
+  // A full name answers the "single or partial name" review question.
+  if (/\s/.test(to) && p.reviewNote?.includes(NOTE.spouse)) {
+    p.reviewNote = p.reviewNote.replace(NOTE.spouse, "").trim() || null;
+    p.needsReview = !!p.reviewNote;
+  }
+};
+for (const c of OWNER_CORRECTIONS) {
+  const person = byPath.get(c.path);
+  if (!person || person.fullName !== c.expect) {
+    if (!person || person.fullName !== c.fullName) console.warn(`WARNING correction for ${c.path} expects "${c.expect}", diagram has "${person?.fullName}"`);
+  } else if (c.fullName) {
+    rename(person, c.fullName);
+    console.log(`correction ${c.path}: ${c.expect} -> ${c.fullName}`);
+  }
+  if (person && c.spouse) {
+    const u = unions.find((x) => x.partnerA === person.id && x.sequence === c.spouse!.sequence);
+    const sp = u?.partnerB ? persons.find((x) => x.id === u.partnerB) : undefined;
+    if (sp?.fullName === c.spouse.expect) {
+      rename(sp, c.spouse.fullName);
+      console.log(`correction ${c.path} spouse: ${c.spouse.expect} -> ${c.spouse.fullName}`);
+    } else if (sp?.fullName !== c.spouse.fullName) {
+      console.warn(`WARNING spouse correction for ${c.path} expects "${c.spouse.expect}", diagram has "${sp?.fullName}"`);
+    }
+  }
+}
 
 for (const [p, a] of Object.entries(ALIASES)) byPath.get(p)?.aliases.push(...a);
 for (const [p, a] of Object.entries(SPOUSE_ALIASES)) {
